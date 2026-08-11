@@ -24,9 +24,10 @@ export interface UserProfile {
 export interface Booth {
   id: string;
   name: string;
-  category: 'Cloud' | 'AI / ML' | 'Mobile & Web' | 'Community' | 'Gold Sponsor' | 'Platinum Sponsor';
+  category: 'Cloud' | 'AI / ML' | 'Mobile & Web' | 'Community' | 'Gold Sponsor' | 'Platinum Sponsor' | string;
   description: string;
   boothCode: string;
+  logoText?: string;
   logoUrl?: string;
   points: number;
   location: string;

@@ -6,23 +6,18 @@ import { Html5QrcodeScanner } from 'html5-qrcode';
 import pinkFlower from '../assets/pink-flower.svg';
 import bluePlus from '../assets/blue-plus.svg';
 import redHeart from '../assets/red-heart.svg';
+import gdgklLogo from '../assets/GDGKL-logo.png';
+import gdgklText from '../assets/GDGKL-text.png';
 
 interface ScanQRScreenProps {
   onBackToHome?: () => void;
 }
 
-// GDG KL Colorful Logo Mark
-const GdgKlLogo = () => (
-  <div className="flex items-center gap-1.5 justify-center text-slate-900 font-extrabold tracking-tight">
-    <div className="flex items-center -space-x-1">
-      <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
-      <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-      <span className="w-2.5 h-2.5 rounded-full bg-yellow-400"></span>
-      <span className="w-2.5 h-2.5 rounded-full bg-green-500"></span>
-    </div>
-    <span className="font-heading font-black text-sm text-slate-900 tracking-tight ml-1">
-      GDG<span className="text-[#3B72EF]">KL</span>
-    </span>
+// GDG KL Branding Logo Component
+const GdgKlLogo = ({ className = "h-5" }: { className?: string }) => (
+  <div className="flex items-center gap-2 justify-center py-0.5">
+    <img src={gdgklLogo} alt="GDG Logo" className={`${className} w-auto object-contain shrink-0`} />
+    <img src={gdgklText} alt="GDG Kuala Lumpur" className={`${className === "h-5" ? "h-4" : "h-5"} w-auto object-contain shrink-0`} />
   </div>
 );
 
@@ -104,6 +99,7 @@ export const ScanQRScreen: React.FC<ScanQRScreenProps> = ({ onBackToHome }) => {
           {/* App Header Bar: DevFest Logo & Profile Avatar */}
           <div className="flex items-center justify-between relative z-10">
             <div className="flex items-center gap-2">
+              <img src={gdgklLogo} alt="GDG Logo" className="h-7 w-auto object-contain shrink-0" />
               <h1 className="font-heading font-black text-2xl text-slate-950 tracking-tight">
                 DevFest
               </h1>
@@ -249,6 +245,9 @@ export const ScanQRScreen: React.FC<ScanQRScreenProps> = ({ onBackToHome }) => {
                 <p className="text-xs italic text-slate-400 font-sans tracking-wide">
                   Hold your camera over the QR code
                 </p>
+                <div className="pt-1">
+                  <GdgKlLogo />
+                </div>
               </div>
 
               {/* Bottom Navigation Back Button */}
