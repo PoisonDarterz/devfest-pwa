@@ -19,14 +19,15 @@ import ScannerCameraModule from './modules/ScannerCameraModule';
 import FriendDiscoveryModule from './modules/FriendDiscoveryModule';
 import BoothDiscoveryModule from './modules/BoothDiscoveryModule';
 import RewardsModule from './modules/RewardsModule';
+import FaqModule from './modules/FaqModule';
 import type { RewardSelection } from './modules/RewardsModule';
 import RewardRedeemModal from './modals/RewardRedeemModal';
 import InfoModals from './modals/InfoModals';
 
 export const HomeScreen: React.FC = () => {
   // Drawer View State
-  const [sheetState, setSheetState] = useState<'home' | 'scan_qr_1' | 'scan_qr_2' | 'participant_profile' | 'booth_profile' | 'rewards'>('home');
-  const [activeModal, setActiveModal] = useState<'rewards' | 'faq' | 'friends' | 'session' | 'profile' | null>(null);
+  const [sheetState, setSheetState] = useState<'home' | 'scan_qr_1' | 'scan_qr_2' | 'participant_profile' | 'booth_profile' | 'rewards' | 'faq'>('home');
+  const [activeModal, setActiveModal] = useState<'rewards' | 'faq' | 'venue_map' | 'about_gdg' | 'friends' | 'session' | 'profile' | null>(null);
 
   // Data States
   const [booths, setBooths] = useState<Booth[]>([]);
@@ -196,7 +197,7 @@ export const HomeScreen: React.FC = () => {
               <span className="text-[11px] font-bold text-slate-900">Rewards</span>
             </button>
 
-            <button onClick={() => setActiveModal('faq')} className="flex flex-col items-center gap-1 group cursor-pointer">
+            <button onClick={() => setSheetState('faq')} className="flex flex-col items-center gap-1 group cursor-pointer">
               <div className="w-13 h-13 rounded-full bg-[#2A6E3F]/80 text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform border border-white/10 active:scale-95">
                 <HelpIcon />
               </div>
@@ -295,7 +296,7 @@ export const HomeScreen: React.FC = () => {
                     <img src={dinoSos} alt="Chrome Dino" className="h-7 object-contain opacity-80" />
                   </div>
                   <button
-                    onClick={() => setActiveModal('faq')}
+                    onClick={() => setSheetState('faq')}
                     className="flex items-center gap-2 px-4 py-3 rounded-full bg-[#EAE4D9] text-[#1C1D21] font-bold text-xs shadow-lg hover:scale-105 transition-transform shrink-0 active:scale-95 cursor-pointer"
                   >
                     <HelpIcon />
@@ -349,6 +350,14 @@ export const HomeScreen: React.FC = () => {
               <RewardsModule
                 claimedStamps={claimedStamps}
                 onSelectReward={(r) => setSelectedReward(r)}
+                onBackToHome={() => setSheetState('home')}
+              />
+            )}
+
+            {/* STATE 7: FAQ & INFO MODULE */}
+            {sheetState === 'faq' && (
+              <FaqModule
+                onOpenDialog={(dialogType) => setActiveModal(dialogType)}
                 onBackToHome={() => setSheetState('home')}
               />
             )}

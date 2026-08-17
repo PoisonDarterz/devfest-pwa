@@ -1,11 +1,14 @@
 import React from 'react';
 import gdgklLogo from '../../assets/GDGKL-logo.png';
+import mapSvg from '../../assets/map.svg';
+import faqSvg from '../../assets/faq.svg';
+import gdgBwSvg from '../../assets/gdg-bw.svg';
 import { CloseIcon } from '../common/Icons';
 import GdgKlLogo from '../common/GdgKlLogo';
 import type { Booth, FAQItem, Session } from '../../lib/types';
 
 interface InfoModalsProps {
-  activeModal: 'rewards' | 'faq' | 'friends' | 'session' | 'profile' | null;
+  activeModal: 'rewards' | 'faq' | 'venue_map' | 'about_gdg' | 'friends' | 'session' | 'profile' | null;
   booths: Booth[];
   faqs: FAQItem[];
   claimedStamps: string[];
@@ -38,11 +41,13 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="glass-card rounded-3xl p-6 border border-slate-800 max-w-sm w-full space-y-4 max-h-[80vh] overflow-y-auto relative">
+      <div className="glass-card rounded-3xl p-6 border border-slate-800 max-w-sm w-full space-y-4 max-h-[85vh] overflow-y-auto relative animate-in fade-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <h3 className="font-heading font-bold text-base text-white capitalize">
             {activeModal === 'rewards' && 'DevFest Reward Stamps'}
-            {activeModal === 'faq' && 'FAQ & Venue Info'}
+            {activeModal === 'venue_map' && 'Venue Map & Directions'}
+            {activeModal === 'faq' && 'Frequently Asked Questions'}
+            {activeModal === 'about_gdg' && 'About DevFest & GDG'}
             {activeModal === 'friends' && 'NFC Bump & Friends'}
             {activeModal === 'session' && 'Session Details'}
             {activeModal === 'profile' && 'Attendee Profile'}
@@ -56,6 +61,95 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
           </button>
         </div>
 
+        {/* VENUE MAP DIALOG */}
+        {activeModal === 'venue_map' && (
+          <div className="space-y-4 text-xs">
+            <div className="bg-slate-900 rounded-2xl p-4 space-y-3 border border-slate-800 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-[#ADC8FF] mx-auto flex items-center justify-center shadow-md">
+                <img src={mapSvg} alt="Venue Map" className="w-10 h-10 object-contain" />
+              </div>
+              <div className="space-y-1">
+                <p className="font-extrabold text-sm text-emerald-400">KL Convention Centre (KLCC)</p>
+                <p className="text-slate-300 text-[11px]">Level 3 Grand Ballroom & Exhibition Halls</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 text-left">
+                <div className="p-2.5 bg-slate-800/90 rounded-xl border border-slate-700">
+                  <span className="text-blue-400 font-bold block">Hall A</span>
+                  <span className="text-slate-300 text-[10px]">Tech Stage & Partner Booths</span>
+                </div>
+                <div className="p-2.5 bg-slate-800/90 rounded-xl border border-slate-700">
+                  <span className="text-yellow-400 font-bold block">Hall B</span>
+                  <span className="text-slate-300 text-[10px]">Web Stage & Sponsor Booths</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2">
+              <p className="font-bold text-white text-xs">How to Get Here:</p>
+              <ul className="list-disc list-inside space-y-1 text-slate-300 text-[11px] leading-relaxed">
+                <li><strong>LRT:</strong> Kelana Jaya Line → KLCC Station (5-min covered walkway).</li>
+                <li><strong>MRT:</strong> Putrajaya Line → Persiaran KLCC Station (Exit 2).</li>
+                <li><strong>Parking:</strong> Available at KLCC Basement Car Park & Suria KLCC.</li>
+              </ul>
+            </div>
+
+            <div className="pt-2 text-center border-t border-slate-800">
+              <GdgKlLogo />
+            </div>
+          </div>
+        )}
+
+        {/* FAQ DIALOG */}
+        {activeModal === 'faq' && (
+          <div className="space-y-3 text-xs">
+            <div className="flex items-center gap-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800">
+              <div className="w-10 h-10 rounded-xl bg-[#ADC8FF] flex items-center justify-center shrink-0">
+                <img src={faqSvg} alt="FAQ" className="w-6 h-6 object-contain" />
+              </div>
+              <div>
+                <p className="font-bold text-white">Event Helper & FAQ</p>
+                <p className="text-[10px] text-slate-400">Everything you need for DevFest KL 2026</p>
+              </div>
+            </div>
+
+            <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">
+              {faqs.map((f: FAQItem, i: number) => (
+                <div key={i} className="p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-1">
+                  <p className="font-bold text-white text-xs">{f.question}</p>
+                  <p className="text-slate-400 leading-relaxed text-[11px] font-sans">{f.answer}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-2 text-center border-t border-slate-800">
+              <GdgKlLogo />
+            </div>
+          </div>
+        )}
+
+        {/* ABOUT DEVFEST & GDG DIALOG */}
+        {activeModal === 'about_gdg' && (
+          <div className="space-y-4 text-xs text-center">
+            <div className="p-4 bg-slate-900 rounded-2xl border border-slate-800 space-y-3">
+              <div className="w-16 h-12 rounded-2xl bg-[#ADC8FF] mx-auto flex items-center justify-center shadow-md">
+                <img src={gdgBwSvg} alt="GDG" className="w-12 h-8 object-contain" />
+              </div>
+              <div>
+                <h4 className="font-extrabold text-white text-base">Google DevFest KL 2026</h4>
+                <p className="text-slate-400 text-[11px] italic font-serif">By Google Developer Group Kuala Lumpur</p>
+              </div>
+              <p className="text-slate-300 text-[11px] leading-relaxed text-left font-sans">
+                <strong>DevFest</strong> is an annual decentralized tech conference hosted by Google Developer Groups (GDG) around the globe. Join developers, designers, and tech leaders in Kuala Lumpur for technical sessions, keynotes, and networking!
+              </p>
+            </div>
+
+            <div className="pt-2 text-center border-t border-slate-800">
+              <GdgKlLogo />
+            </div>
+          </div>
+        )}
+
+        {/* REWARDS STAMPS DIALOG */}
         {activeModal === 'rewards' && (
           <div className="space-y-4">
             <div className="p-3 bg-slate-900/90 rounded-2xl border border-slate-800 flex items-center justify-between">
@@ -106,17 +200,7 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
           </div>
         )}
 
-        {activeModal === 'faq' && (
-          <div className="space-y-3 text-xs">
-            {faqs.map((f: FAQItem, i: number) => (
-              <div key={i} className="p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-1">
-                <p className="font-bold text-white">{f.question}</p>
-                <p className="text-slate-400 leading-relaxed">{f.answer}</p>
-              </div>
-            ))}
-          </div>
-        )}
-
+        {/* FRIENDS DIALOG */}
         {activeModal === 'friends' && (
           <div className="space-y-4 text-center text-xs">
             <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-2xl space-y-2">
@@ -129,6 +213,7 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
           </div>
         )}
 
+        {/* SESSION DETAILS DIALOG */}
         {activeModal === 'session' && (
           <div className="space-y-3 text-xs">
             <div className="flex items-center gap-3">
@@ -143,6 +228,7 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
           </div>
         )}
 
+        {/* USER PROFILE DIALOG */}
         {activeModal === 'profile' && (
           <div className="space-y-3 text-xs text-center">
             <div className="w-16 h-16 rounded-full overflow-hidden mx-auto border-2 border-emerald-500">
