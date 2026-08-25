@@ -108,7 +108,7 @@ export const ScannerCameraModule: React.FC<ScannerCameraModuleProps> = ({
           Hold your camera over the QR code
         </p>
         <div className="pt-1">
-          <GdgKlLogo />
+          <GdgKlLogo inverted />
         </div>
       </div>
 

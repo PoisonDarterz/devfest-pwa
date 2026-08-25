@@ -13,11 +13,10 @@ interface ScanQRScreenProps {
   onBackToHome?: () => void;
 }
 
-// GDG KL Branding Logo Component
-const GdgKlLogo = ({ className = "h-5" }: { className?: string }) => (
+const GdgKlLogo = ({ className = "h-5", inverted = false }: { className?: string; inverted?: boolean }) => (
   <div className="flex items-center gap-2 justify-center py-0.5">
     <img src={gdgklLogo} alt="GDG Logo" className={`${className} w-auto object-contain shrink-0`} />
-    <img src={gdgklText} alt="GDG Kuala Lumpur" className={`${className === "h-5" ? "h-4" : "h-5"} w-auto object-contain shrink-0`} />
+    <img src={gdgklText} alt="GDG Kuala Lumpur" className={`${className === "h-5" ? "h-4" : "h-5"} w-auto object-contain shrink-0 ${inverted ? 'invert hue-rotate-180' : ''}`} />
   </div>
 );
 
@@ -246,7 +245,7 @@ export const ScanQRScreen: React.FC<ScanQRScreenProps> = ({ onBackToHome }) => {
                   Hold your camera over the QR code
                 </p>
                 <div className="pt-1">
-                  <GdgKlLogo />
+                  <GdgKlLogo inverted />
                 </div>
               </div>
 

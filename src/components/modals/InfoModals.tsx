@@ -94,7 +94,7 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
             </div>
 
             <div className="pt-2 text-center border-t border-slate-800">
-              <GdgKlLogo />
+              <GdgKlLogo inverted />
             </div>
           </div>
         )}
@@ -122,7 +122,7 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
             </div>
 
             <div className="pt-2 text-center border-t border-slate-800">
-              <GdgKlLogo />
+              <GdgKlLogo inverted />
             </div>
           </div>
         )}
@@ -144,7 +144,7 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
             </div>
 
             <div className="pt-2 text-center border-t border-slate-800">
-              <GdgKlLogo />
+              <GdgKlLogo inverted />
             </div>
           </div>
         )}
@@ -195,7 +195,7 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
               </p>
             )}
             <div className="pt-2 text-center border-t border-slate-800/80">
-              <GdgKlLogo />
+              <GdgKlLogo inverted />
             </div>
           </div>
         )}
