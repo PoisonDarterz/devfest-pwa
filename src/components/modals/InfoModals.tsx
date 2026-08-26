@@ -4,6 +4,7 @@ import mapSvg from '../../assets/map.svg';
 import faqSvg from '../../assets/faq.svg';
 import gdgBwSvg from '../../assets/gdg-bw.svg';
 import { CloseIcon } from '../common/Icons';
+import { getAvatarUrl } from '../../lib/avatar';
 import GdgKlLogo from '../common/GdgKlLogo';
 import type { Booth, FAQItem, Session } from '../../lib/types';
 
@@ -23,6 +24,9 @@ interface InfoModalsProps {
   };
   onClaimStampDemo: (boothId: string) => void;
   onClose: () => void;
+  savedSessionIds?: string[];
+  onToggleSaveSession?: (sessionId: string) => void;
+  onSimulateAlert?: (session: Session) => void;
 }
 
 export const InfoModals: React.FC<InfoModalsProps> = ({
@@ -36,6 +40,9 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
   userProfile,
   onClaimStampDemo,
   onClose,
+  savedSessionIds = [],
+  onToggleSaveSession,
+  onSimulateAlert,
 }) => {
   if (!activeModal) return null;
 
@@ -215,7 +222,7 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
 
         {/* SESSION DETAILS DIALOG */}
         {activeModal === 'session' && (
-          <div className="space-y-3 text-xs">
+          <div className="space-y-4 text-xs">
             <div className="flex items-center gap-3">
               <img src={activeSession.speaker.avatar} className="w-10 h-10 rounded-xl object-cover" alt="" />
               <div>
@@ -224,7 +231,41 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
               </div>
             </div>
             <p className="font-bold text-blue-400 text-xs">{activeSession.time} • {activeSession.room}</p>
-            <p className="text-slate-300 leading-relaxed">{activeSession.description}</p>
+            <p className="text-slate-300 leading-relaxed font-sans">{activeSession.description}</p>
+            
+            <div className="pt-3 border-t border-slate-800 space-y-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <button
+                  onClick={() => onToggleSaveSession?.(activeSession.id)}
+                  className={`flex-1 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                    savedSessionIds.includes(activeSession.id)
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                      : 'bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700'
+                  }`}
+                >
+                  <svg className="w-4 h-4 shrink-0" fill={savedSessionIds.includes(activeSession.id) ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                  </svg>
+                  <span>{savedSessionIds.includes(activeSession.id) ? 'Saved' : 'Save to Schedule'}</span>
+                </button>
+
+                {savedSessionIds.includes(activeSession.id) && (
+                  <button
+                    onClick={() => onSimulateAlert?.(activeSession)}
+                    className="px-3 py-2.5 bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30 font-bold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                    title="Simulate starting soon warning"
+                  >
+                    <span>Simulate Demo</span>
+                  </button>
+                )}
+              </div>
+
+              {savedSessionIds.includes(activeSession.id) && (
+                <p className="text-[10px] text-slate-400 text-center">
+                  💡 Reminders are active. A notification will fire 5 minutes before the session starts.
+                </p>
+              )}
+            </div>
           </div>
         )}
 
@@ -232,7 +273,7 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
         {activeModal === 'profile' && (
           <div className="space-y-3 text-xs text-center">
             <div className="w-16 h-16 rounded-full overflow-hidden mx-auto border-2 border-emerald-500">
-              <img src={userProfile.avatar} alt="" className="w-full h-full object-cover" />
+              <img src={getAvatarUrl(userProfile.avatar, userProfile.email || userProfile.name)} alt="" className="w-full h-full object-cover" />
             </div>
             <h4 className="font-bold text-white text-sm">{userProfile.name}</h4>
             <p className="text-slate-400">{userProfile.role} • {userProfile.email}</p>

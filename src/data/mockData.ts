@@ -57,6 +57,84 @@ export const MOCK_SESSIONS: Session[] = [
     time: '02:00 PM',
     description: 'Explore Model Context Protocol (MCP), Agent Development Kit, and Agent-to-Agent protocol paradigms.',
   },
+  {
+    id: 's4',
+    title: 'Advanced Fine-Tuning with Google Gemma',
+    speaker: {
+      name: 'Dr. Evelyn Carter',
+      role: 'AI Researcher @ Google DeepMind',
+      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80',
+    },
+    track: 'AI / ML',
+    room: 'Main Auditorium',
+    time: '12:30 PM',
+    description: 'Deep dive into LoRA, QLoRA, and reinforcement learning with human feedback (RLHF) techniques using Google Gemma model family.',
+  },
+  {
+    id: 's5',
+    title: 'Kubernetes Autoscale and Multi-Region Deployments',
+    speaker: {
+      name: 'Marcus Chen',
+      role: 'Solutions Architect @ GCP',
+      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80',
+    },
+    track: 'Cloud & DevOps',
+    room: 'Hall A (Tech Stage)',
+    time: '01:30 PM',
+    description: 'Explore HPA, VPA, Karpenter autoscaling, and global multi-region traffic routing strategies on GKE.',
+  },
+  {
+    id: 's6',
+    title: 'Flutter 4: What is new in Cross-Platform Mobile',
+    speaker: {
+      name: 'Aisha Rahman',
+      role: 'GDE in Flutter',
+      avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=150&q=80',
+    },
+    track: 'Mobile & Flutter',
+    room: 'Hall B (Web Stage)',
+    time: '12:00 PM',
+    description: 'Learn about the latest compilation targets, performance enhancements, and Impeller engine details in Flutter 4.',
+  },
+  {
+    id: 's7',
+    title: 'Building Custom MCP Servers for Codebase Context',
+    speaker: {
+      name: 'Ravi Kumar',
+      role: 'Senior Developer Advocate',
+      avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=150&q=80',
+    },
+    track: 'Keynote',
+    room: 'Main Auditorium',
+    time: '03:30 PM',
+    description: 'Learn how to extend LLM capabilities with custom tools and data services by building your own Model Context Protocol server.',
+  },
+  {
+    id: 's8',
+    title: 'GitOps Pipelines with ArgoCD & Terraform',
+    speaker: {
+      name: 'Elena Rostova',
+      role: 'Platform Engineer @ GitFlow',
+      avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=150&q=80',
+    },
+    track: 'Cloud & DevOps',
+    room: 'Hall A (Tech Stage)',
+    time: '04:00 PM',
+    description: 'Automate cluster state configuration and infrastructure provisioning safely via Git commits using declarative tooling.',
+  },
+  {
+    id: 's9',
+    title: 'Building Next-Gen PWAs with Vite and Workbox',
+    speaker: {
+      name: 'Kenji Sato',
+      role: 'Frontend Architect',
+      avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=150&q=80',
+    },
+    track: 'Web & Chrome',
+    room: 'Hall B (Web Stage)',
+    time: '03:00 PM',
+    description: 'Maximize offline capability, precaching, background sync, and notification pushes using Vite PWA configs.',
+  },
 ];
 
 export const MOCK_FAQS: FAQItem[] = [
@@ -109,8 +187,13 @@ export const MOCK_REWARDS: RewardItem[] = [
 
 export const MOCK_DISCOVERED_FRIEND = {
   name: 'Jonas Chuan',
-  role: 'Participant',
-  avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=300&q=80',
+  role: 'Mobile Developer',
+  company: 'GDG Kuala Lumpur',
+  email: 'jonas.chuan@devfest.kl',
+  bio: 'Building Android apps & PWAs. Passionate about Kotlin, Flutter, and web performance!',
+  avatar: '',
+  githubUrl: 'https://github.com/jonaschuan',
+  linkedinUrl: 'https://linkedin.com/in/jonaschuan',
 };
 
 export const MOCK_USER_PROFILE = {
@@ -118,6 +201,6 @@ export const MOCK_USER_PROFILE = {
   name: 'Zixu Cheah',
   role: 'Software Engineer',
   email: 'zixu.cheah@devfest.kl',
-  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+  avatar: '',
   qrPayload: 'DEVFEST-KL-2026-ZIXU-CHEAH-SW',
 };
