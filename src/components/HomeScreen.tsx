@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { checkNFCSupport } from '../lib/nfc';
 import { getAvatarUrl } from '../lib/avatar';
 import { ApiService } from '../services/apiService';
-import { MOCK_DISCOVERED_FRIEND } from '../data/mockData';
 import type { Session, Booth, FAQItem } from '../lib/types';
 
 // Common Components
@@ -35,11 +34,22 @@ export const HomeScreen: React.FC = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [faqs, setFaqs] = useState<FAQItem[]>([]);
   const [userProfile, setUserProfile] = useState({
+    id: 'usr_123',
     name: 'Zixu Cheah',
     role: 'Software Engineer',
     email: 'zixu.cheah@devfest.kl',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
     qrPayload: 'DEVFEST-KL-2026-ZIXU-CHEAH-SW',
+  });
+
+  const [discoveredFriend, setDiscoveredFriend] = useState({
+    name: 'Jonas Chuan',
+    role: 'Mobile Developer',
+    email: 'jonas.chuan@devfest.kl',
+    avatar: '',
+    bio: 'Building Android apps & PWAs. Passionate about Kotlin, Flutter, and web performance!',
+    githubUrl: 'https://github.com/jonaschuan',
+    linkedinUrl: 'https://linkedin.com/in/jonaschuan',
   });
 
   // UI Interactive States
@@ -76,16 +86,28 @@ export const HomeScreen: React.FC = () => {
   // Load Data via Service Layer
   useEffect(() => {
     async function loadInitialData() {
-      const [fetchedSessions, fetchedBooths, fetchedFaqs, fetchedUser] = await Promise.all([
+      const [fetchedSessions, fetchedBooths, fetchedFaqs, fetchedUser, fetchedFriend] = await Promise.all([
         ApiService.getSessions(),
         ApiService.getBooths(),
         ApiService.getFAQs(),
         ApiService.getUserProfile(),
+        ApiService.getProfileById('22222222-2222-2222-2222-222222222222'),
       ]);
       setSessions(fetchedSessions);
       setBooths(fetchedBooths);
       setFaqs(fetchedFaqs);
       if (fetchedUser) setUserProfile(fetchedUser);
+      if (fetchedFriend) {
+        setDiscoveredFriend({
+          name: fetchedFriend.name,
+          role: fetchedFriend.role,
+          email: fetchedFriend.email,
+          avatar: fetchedFriend.avatar,
+          bio: fetchedFriend.bio || 'Attendee at Google DevFest KL 2026.',
+          githubUrl: fetchedFriend.githubUrl || 'https://github.com',
+          linkedinUrl: fetchedFriend.linkedinUrl || 'https://linkedin.com',
+        });
+      }
     }
     loadInitialData();
   }, []);
@@ -602,7 +624,7 @@ export const HomeScreen: React.FC = () => {
             {/* STATE 4: FRIEND DISCOVERY */}
             {sheetState === 'participant_profile' && (
               <FriendDiscoveryModule
-                friend={MOCK_DISCOVERED_FRIEND}
+                friend={discoveredFriend}
                 onBackToHome={() => setSheetState('home')}
               />
             )}
