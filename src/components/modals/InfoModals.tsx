@@ -27,6 +27,7 @@ interface InfoModalsProps {
   savedSessionIds?: string[];
   onToggleSaveSession?: (sessionId: string) => void;
   onSimulateAlert?: (session: Session) => void;
+  onLogout?: () => void;
 }
 
 export const InfoModals: React.FC<InfoModalsProps> = ({
@@ -43,6 +44,7 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
   savedSessionIds = [],
   onToggleSaveSession,
   onSimulateAlert,
+  onLogout,
 }) => {
   if (!activeModal) return null;
 
@@ -280,6 +282,18 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
             <div className="p-3 bg-slate-900 rounded-xl border border-slate-800 text-emerald-400 font-semibold">
               ✓ Peatix Ticket Linked
             </div>
+            {onLogout && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onLogout();
+                }}
+                className="w-full py-2.5 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 font-bold transition-all cursor-pointer text-xs"
+              >
+                Sign Out
+              </button>
+            )}
           </div>
         )}
       </div>

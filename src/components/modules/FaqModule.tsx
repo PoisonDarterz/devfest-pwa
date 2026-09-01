@@ -52,18 +52,18 @@ export const FaqModule: React.FC<FaqModuleProps> = ({ onOpenDialog, onBackToHome
           </div>
         </div>
 
-        {/* CARD 3: About DevFest & GDG */}
+        {/* CARD 3: DevFest Sponsors */}
         <div
           onClick={() => onOpenDialog('about_gdg')}
           className="bg-[#ECE6DA] text-slate-900 rounded-[28px] p-5 border-4 border-[#DED7C9] flex items-center justify-between shadow-xl cursor-pointer hover:scale-[1.01] active:scale-[0.99] transition-transform"
         >
           <div className="space-y-1 pr-2">
             <h3 className="font-heading font-extrabold text-2xl text-slate-950 tracking-tight leading-tight">
-              About DevFest<br />& GDG
+              DevFest<br />Sponsors
             </h3>
           </div>
           <div className="w-24 h-24 rounded-2xl bg-[#ADC8FF] flex items-center justify-center shrink-0 shadow-sm border border-blue-300/40">
-            <img src={gdgBwSvg} alt="About DevFest & GDG" className="w-13 h-10 object-contain" />
+            <img src={gdgBwSvg} alt="DevFest Sponsors" className="w-13 h-10 object-contain" />
           </div>
         </div>
       </div>

@@ -6,6 +6,7 @@ import { ApiService } from '../services/apiService';
 import type { Session, Booth, FAQItem } from '../lib/types';
 
 // Common Components
+import bgIcons from '../assets/bg-icons.svg';
 import gdgklLogo from '../assets/GDGKL-logo.png';
 import pinkFlower from '../assets/pink-flower.svg';
 import yellowArrow from '../assets/yellow-arrow.svg';
@@ -24,7 +25,17 @@ import type { RewardSelection } from './modules/RewardsModule';
 import RewardRedeemModal from './modals/RewardRedeemModal';
 import InfoModals from './modals/InfoModals';
 
-export const HomeScreen: React.FC = () => {
+interface HomeScreenProps {
+  onLogout?: () => void;
+  initialUser?: {
+    name: string;
+    email: string;
+    role: string;
+    avatar: string;
+  };
+}
+
+export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, initialUser }) => {
   // Drawer View State
   const [sheetState, setSheetState] = useState<'home' | 'scan_qr_1' | 'scan_qr_2' | 'participant_profile' | 'booth_profile' | 'rewards' | 'faq'>('home');
   const [activeModal, setActiveModal] = useState<'rewards' | 'faq' | 'venue_map' | 'about_gdg' | 'friends' | 'session' | 'profile' | null>(null);
@@ -35,10 +46,10 @@ export const HomeScreen: React.FC = () => {
   const [faqs, setFaqs] = useState<FAQItem[]>([]);
   const [userProfile, setUserProfile] = useState({
     id: 'usr_123',
-    name: 'Zixu Cheah',
-    role: 'Software Engineer',
-    email: 'zixu.cheah@devfest.kl',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+    name: initialUser?.name || 'Zixu Cheah',
+    role: initialUser?.role || 'Software Engineer',
+    email: initialUser?.email || 'zixu.cheah@devfest.kl',
+    avatar: initialUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
     qrPayload: 'DEVFEST-KL-2026-ZIXU-CHEAH-SW',
   });
 
@@ -365,10 +376,17 @@ export const HomeScreen: React.FC = () => {
   return (
     <div className="h-screen bg-[#3B9E59] text-slate-900 flex flex-col items-center justify-start overflow-hidden font-sans select-none">
       <div className="w-full max-w-md h-full flex flex-col relative shadow-2xl overflow-hidden bg-[#3B9E59]">
+        {/* Background Decorative Icons (Top Half Only) */}
+        <div className="absolute top-0 left-0 right-0 h-[50%] overflow-hidden pointer-events-none z-0 select-none">
+          <img
+            src={bgIcons}
+            alt=""
+            className="w-full h-full object-cover object-top"
+          />
+        </div>
         
         {/* TOP GREEN HEADER */}
         <div className="p-5 pt-6 pb-2 space-y-4 relative shrink-0">
-          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>
 
           {/* Header Bar */}
           <div className="flex items-center justify-between relative z-10">
@@ -672,6 +690,7 @@ export const HomeScreen: React.FC = () => {
           savedSessionIds={savedSessionIds}
           onToggleSaveSession={handleToggleSaveSession}
           onSimulateAlert={handleSimulateAlert}
+          onLogout={onLogout}
         />
 
         {/* INDIVIDUAL REWARD REDEEM POPUP MODAL */}
