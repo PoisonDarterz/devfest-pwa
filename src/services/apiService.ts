@@ -191,6 +191,98 @@ export const ApiService = {
     return null;
   },
 
+  // Save or Update User Profile
+  async saveUserProfile(profile: {
+    name: string;
+    email: string;
+    role?: string;
+    bio?: string;
+    githubUrl?: string;
+    linkedinUrl?: string;
+    avatar?: string;
+  }): Promise<{ success: boolean; profile: UserProfile; message: string }> {
+    const qrPayload = `DEVFEST-KL-2026-${profile.name.toUpperCase().replace(/\s+/g, '-')}`;
+
+    if (USE_NODE_BACKEND) {
+      try {
+        const res = await fetch(`${NODE_API_BASE_URL}/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: profile.name,
+            email: profile.email,
+            role: profile.role,
+            bio: profile.bio,
+            githubUrl: profile.githubUrl,
+            linkedinUrl: profile.linkedinUrl,
+          }),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          return { success: true, profile: json.user, message: 'Profile saved successfully!' };
+        }
+      } catch (err) {
+        console.warn('Node backend save user profile failed:', err);
+      }
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .upsert(
+          {
+            email: profile.email,
+            full_name: profile.name,
+            company_role: profile.role || 'Participant',
+            bio: profile.bio || '',
+            github_url: profile.githubUrl || '',
+            linkedin_url: profile.linkedinUrl || '',
+            qr_payload: qrPayload,
+          },
+          { onConflict: 'email' }
+        )
+        .select()
+        .limit(1);
+
+      if (!error && data && data.length > 0) {
+        const p = data[0];
+        return {
+          success: true,
+          profile: {
+            id: p.id,
+            name: p.full_name,
+            role: p.company_role || 'Participant',
+            email: p.email,
+            avatar: p.avatar_url || '',
+            bio: p.bio || '',
+            githubUrl: p.github_url || '',
+            linkedinUrl: p.linkedin_url || '',
+            qrPayload: p.qr_payload || qrPayload,
+          },
+          message: 'Profile saved successfully!',
+        };
+      }
+    } catch (err) {
+      console.warn('Database save user profile failed:', err);
+    }
+
+    return {
+      success: true,
+      profile: {
+        id: 'usr_local',
+        name: profile.name,
+        role: profile.role || 'Participant',
+        email: profile.email,
+        avatar: profile.avatar || '',
+        bio: profile.bio || '',
+        githubUrl: profile.githubUrl || '',
+        linkedinUrl: profile.linkedinUrl || '',
+        qrPayload,
+      },
+      message: 'Profile saved locally!',
+    };
+  },
+
   // Submit Stamp Claim
   async claimBoothStamp(boothId: string, currentStamps: string[]): Promise<{ success: boolean; stamps: string[]; message: string }> {
     if (currentStamps.includes(boothId)) {

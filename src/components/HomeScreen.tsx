@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { checkNFCSupport } from '../lib/nfc';
 import { getAvatarUrl } from '../lib/avatar';
 import { ApiService } from '../services/apiService';
+import type { UserProfile } from '../services/apiService';
 import type { Session, Booth, FAQItem } from '../lib/types';
 
 // Common Components
@@ -32,6 +33,9 @@ interface HomeScreenProps {
     email: string;
     role: string;
     avatar: string;
+    bio?: string;
+    githubUrl?: string;
+    linkedinUrl?: string;
   };
 }
 
@@ -44,13 +48,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, initialUser })
   const [booths, setBooths] = useState<Booth[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [faqs, setFaqs] = useState<FAQItem[]>([]);
-  const [userProfile, setUserProfile] = useState({
+  const [userProfile, setUserProfile] = useState<UserProfile>({
     id: 'usr_123',
     name: initialUser?.name || 'Zixu Cheah',
     role: initialUser?.role || 'Software Engineer',
     email: initialUser?.email || 'zixu.cheah@devfest.kl',
-    avatar: initialUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
-    qrPayload: 'DEVFEST-KL-2026-ZIXU-CHEAH-SW',
+    avatar: initialUser?.avatar || '',
+    bio: initialUser?.bio || '',
+    githubUrl: initialUser?.githubUrl || '',
+    linkedinUrl: initialUser?.linkedinUrl || '',
+    qrPayload: `DEVFEST-KL-2026-${(initialUser?.name || 'Zixu Cheah').toUpperCase().replace(/\s+/g, '-')}`,
   });
 
   const [discoveredFriend, setDiscoveredFriend] = useState({

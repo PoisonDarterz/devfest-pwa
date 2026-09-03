@@ -7,6 +7,9 @@ export interface AuthUser {
   email: string;
   role: string;
   avatar: string;
+  bio?: string;
+  githubUrl?: string;
+  linkedinUrl?: string;
 }
 
 export const App: React.FC = () => {

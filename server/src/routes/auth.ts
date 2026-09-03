@@ -66,7 +66,7 @@ authRouter.get('/profile/:id', async (req: Request, res: Response): Promise<void
 
 // Register or Update User Profile
 authRouter.post('/register', async (req: Request, res: Response): Promise<void> => {
-  const { email, name, role } = req.body;
+  const { email, name, role, bio, githubUrl, linkedinUrl } = req.body;
 
   if (!email || !name) {
     res.status(400).json({ message: 'Email and name are required.' });
@@ -76,25 +76,35 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
   try {
     const { data, error } = await supabaseAdmin
       .from('profiles')
-      .upsert({
-        email,
-        full_name: name,
-        company_role: role || 'Participant',
-        qr_payload: `DEVFEST-KL-2026-${name.toUpperCase().replace(/\s+/g, '-')}`,
-      })
+      .upsert(
+        {
+          email,
+          full_name: name,
+          company_role: role || 'Participant',
+          bio: bio || '',
+          github_url: githubUrl || '',
+          linkedin_url: linkedinUrl || '',
+          qr_payload: `DEVFEST-KL-2026-${name.toUpperCase().replace(/\s+/g, '-')}`,
+        },
+        { onConflict: 'email' }
+      )
       .select()
-      .single();
+      .limit(1);
 
-    if (!error && data) {
+    if (!error && data && data.length > 0) {
+      const p = data[0];
       res.json({
         success: true,
         user: {
-          id: data.id,
-          name: data.full_name,
-          role: data.company_role,
-          email: data.email,
-          avatar: data.avatar_url || '',
-          qrPayload: data.qr_payload,
+          id: p.id,
+          name: p.full_name,
+          role: p.company_role,
+          email: p.email,
+          avatar: p.avatar_url || '',
+          bio: p.bio || '',
+          githubUrl: p.github_url || '',
+          linkedinUrl: p.linkedin_url || '',
+          qrPayload: p.qr_payload,
         },
       });
       return;
@@ -108,9 +118,12 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
     user: {
       id: 'usr_123',
       name,
-      role: role || 'Software Engineer',
+      role: role || 'Participant',
       email,
       avatar: '',
+      bio: bio || '',
+      githubUrl: githubUrl || '',
+      linkedinUrl: linkedinUrl || '',
       qrPayload: `DEVFEST-KL-2026-${name.toUpperCase().replace(/\s+/g, '-')}`,
     },
   });
