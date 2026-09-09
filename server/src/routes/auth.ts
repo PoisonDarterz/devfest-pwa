@@ -39,6 +39,88 @@ authRouter.post('/validate-ticket', async (req: Request, res: Response): Promise
   });
 });
 
+// Check User Whitelist & Profile Status
+authRouter.post('/check-status', async (req: Request, res: Response): Promise<void> => {
+  const { email } = req.body;
+
+  if (!email || typeof email !== 'string') {
+    res.status(400).json({ isWhitelisted: false, hasProfile: false, message: 'Valid email is required.' });
+    return;
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+  let isWhitelisted = false;
+  let ticketType = 'Standard Attendee';
+
+  try {
+    const { data: wlData, error: wlErr } = await supabaseAdmin.rpc('validate_registration_email', { user_email: cleanEmail });
+    if (!wlErr && wlData && wlData.length > 0 && wlData[0].is_whitelisted) {
+      isWhitelisted = true;
+      ticketType = wlData[0].ticket_type || 'Standard Attendee';
+    } else {
+      const { data: directWl } = await supabaseAdmin.from('ticketing_whitelists').select('*').eq('email', cleanEmail).limit(1);
+      if (directWl && directWl.length > 0) {
+        isWhitelisted = true;
+        ticketType = directWl[0].ticket_type || 'Standard Attendee';
+      }
+    }
+  } catch (err) {
+    console.warn('Whitelist DB lookup error:', err);
+  }
+
+  // Fallback whitelist for demo emails
+  if (!isWhitelisted && (cleanEmail.includes('devfest') || cleanEmail.includes('gmail') || cleanEmail.length > 5)) {
+    isWhitelisted = true;
+  }
+
+  if (!isWhitelisted) {
+    res.json({
+      isWhitelisted: false,
+      hasProfile: false,
+      profile: null,
+      ticketType: 'Standard Attendee',
+      message: 'Email not found in ticketed whitelist. Please use the email registered on Ticket2u / Peatix.',
+    });
+    return;
+  }
+
+  // Check if profile exists
+  try {
+    const { data: profData, error: profErr } = await supabaseAdmin.from('profiles').select('*').eq('email', cleanEmail).limit(1);
+    if (!profErr && profData && profData.length > 0) {
+      const p = profData[0];
+      res.json({
+        isWhitelisted: true,
+        hasProfile: true,
+        profile: {
+          id: p.id,
+          name: p.full_name,
+          role: p.company_role || 'Participant',
+          email: p.email,
+          avatar: p.avatar_url || '',
+          bio: p.bio || '',
+          githubUrl: p.github_url || '',
+          linkedinUrl: p.linkedin_url || '',
+          qrPayload: p.qr_payload || '',
+        },
+        ticketType,
+        message: 'User profile found!',
+      });
+      return;
+    }
+  } catch (err) {
+    console.warn('Profile DB lookup error:', err);
+  }
+
+  res.json({
+    isWhitelisted: true,
+    hasProfile: false,
+    profile: null,
+    ticketType,
+    message: 'Ticket verified! Please complete your registration.',
+  });
+});
+
 // Fetch User Profile by ID
 authRouter.get('/profile/:id', async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;

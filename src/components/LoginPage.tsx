@@ -4,7 +4,7 @@ import bgIcons from '../assets/bg-icons.svg';
 import gLogo from '../assets/g-logo.png';
 import GdgKlLogo from './common/GdgKlLogo';
 import { getAvatarUrl } from '../lib/avatar';
-import { ApiService } from '../services/apiService';
+import { ApiService, type UserProfile } from '../services/apiService';
 
 interface LoginPageProps {
   onLoginSuccess: (userProfile: {
@@ -22,6 +22,7 @@ type AuthMode =
   | 'login_initial'
   | 'login_email'
   | 'login_password'
+  | 'register_first_time'
   | 'register_email'
   | 'register_google'
   | 'complete_profile';
@@ -36,6 +37,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [profileName, setProfileName] = useState('');
   const [googleUserEmail, setGoogleUserEmail] = useState('zixu.cheah@devfest.kl');
 
+  // Existing Profile Cache (if returning user)
+  const [existingProfile, setExistingProfile] = useState<UserProfile | null>(null);
+
   // Form Fields - Complete Profile Additional Details
   const [role, setRole] = useState('');
   const [bio, setBio] = useState('');
@@ -46,30 +50,52 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Handle Google Sign In
-  const handleGoogleSignIn = (isFromRegister = false) => {
+  // ---------------------------------------------------------------------------
+  // 1. Handle Google Sign In (SSO)
+  // ---------------------------------------------------------------------------
+  const handleGoogleSignIn = async (isFromRegister = false) => {
     setIsLoading(true);
     setErrorMessage(null);
 
-    setTimeout(() => {
-      setIsLoading(false);
-      if (isFromRegister) {
-        const activeEmail = email.trim() || 'zixu.cheah@devfest.kl';
-        setGoogleUserEmail(activeEmail);
-        setProfileName('Zixu Cheah');
-        setMode('register_google');
-      } else {
-        onLoginSuccess({
-          name: 'Zixu Cheah',
-          email: 'zixu.cheah@devfest.kl',
-          role: 'Software Engineer',
-          avatar: '',
-        });
+    const targetEmail = isFromRegister
+      ? (email.trim() || 'zixu.cheah@devfest.kl')
+      : (email.trim() || 'zixu.cheah@devfest.kl');
+
+    try {
+      const status = await ApiService.checkUserStatus(targetEmail);
+
+      if (!status.isWhitelisted) {
+        setErrorMessage(status.message || 'This Google account is not on the ticketed whitelist.');
+        setIsLoading(false);
+        return;
       }
-    }, 500);
+
+      setGoogleUserEmail(targetEmail);
+
+      if (status.hasProfile && status.profile) {
+        // Existing user with completed profile -> direct login to Home Screen!
+        onLoginSuccess(status.profile);
+      } else {
+        // Whitelisted user who has NOT registered a profile yet -> go to Complete Your Profile!
+        const defaultName = targetEmail
+          .split('@')[0]
+          .replace(/[._]/g, ' ')
+          .replace(/\b\w/g, (c) => c.toUpperCase());
+
+        setProfileName(defaultName);
+        setMode('complete_profile');
+      }
+    } catch (err) {
+      console.error('Google Sign In check failed:', err);
+      setErrorMessage('Sign in failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Handle Login Email Step
+  // ---------------------------------------------------------------------------
+  // 2. Handle Login Email Step (Smart Whitelist & Profile Detection)
+  // ---------------------------------------------------------------------------
   const handleLoginEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !email.includes('@')) {
@@ -81,20 +107,41 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setErrorMessage(null);
 
     try {
-      const whitelistResult = await ApiService.validateEmailWhitelist(email.trim());
-      if (whitelistResult.isWhitelisted) {
+      const status = await ApiService.checkUserStatus(email.trim());
+
+      if (!status.isWhitelisted) {
+        setErrorMessage(status.message || 'Email not found in ticketed whitelist.');
+        setIsLoading(false);
+        return;
+      }
+
+      if (status.hasProfile && status.profile) {
+        // Returning attendee with registered profile -> prompt for password
+        setExistingProfile(status.profile);
         setMode('login_password');
       } else {
-        setErrorMessage(whitelistResult.message || 'Email not found in ticketed whitelist.');
+        // Whitelisted ticket holder, but has NOT registered a profile yet!
+        // Seamlessly route to set up their profile name & password
+        const defaultName = email
+          .trim()
+          .split('@')[0]
+          .replace(/[._]/g, ' ')
+          .replace(/\b\w/g, (c) => c.toUpperCase());
+
+        setProfileName(defaultName);
+        setMode('register_first_time');
       }
-    } catch {
-      setMode('login_password');
+    } catch (err) {
+      console.error('Login email check failed:', err);
+      setErrorMessage('Verification failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle Login Password Step
+  // ---------------------------------------------------------------------------
+  // 3. Handle Returning User Password Submit
+  // ---------------------------------------------------------------------------
   const handleLoginPasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!password.trim()) {
@@ -107,22 +154,52 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
     setTimeout(() => {
       setIsLoading(false);
-      const username = email.split('@')[0].replace(/[._]/g, ' ');
-      const formattedName = username
-        .split(' ')
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(' ');
+      if (existingProfile) {
+        onLoginSuccess(existingProfile);
+      } else {
+        const username = email.split('@')[0].replace(/[._]/g, ' ');
+        const formattedName = username
+          .split(' ')
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(' ');
 
-      onLoginSuccess({
-        name: formattedName || 'DevFest Attendee',
-        email: email.trim(),
-        role: 'Participant',
-        avatar: '',
-      });
-    }, 600);
+        onLoginSuccess({
+          name: formattedName || 'DevFest Attendee',
+          email: email.trim(),
+          role: 'Participant',
+          avatar: '',
+        });
+      }
+    }, 500);
   };
 
-  // Handle Registration with Email & Password -> Advance to Complete Profile
+  // ---------------------------------------------------------------------------
+  // 4. Handle First-Time Whitelisted User Account Setup
+  // ---------------------------------------------------------------------------
+  const handleFirstTimeRegisterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+
+    if (!profileName.trim()) {
+      setErrorMessage('Please enter your profile name.');
+      return;
+    }
+    if (!password) {
+      setErrorMessage('Please create a password for your account.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setErrorMessage('Passwords do not match.');
+      return;
+    }
+
+    // Passwords match -> advance to Complete Your Profile!
+    setMode('complete_profile');
+  };
+
+  // ---------------------------------------------------------------------------
+  // 5. Handle Manual Registration Link Submission
+  // ---------------------------------------------------------------------------
   const handleRegisterEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -147,9 +224,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setIsLoading(true);
 
     try {
-      const whitelistResult = await ApiService.validateEmailWhitelist(email.trim());
-      if (!whitelistResult.isWhitelisted) {
-        setErrorMessage(whitelistResult.message || 'Email is not in the ticketed whitelist.');
+      const status = await ApiService.checkUserStatus(email.trim());
+      if (!status.isWhitelisted) {
+        setErrorMessage(status.message || 'Email is not in the ticketed whitelist.');
         setIsLoading(false);
         return;
       }
@@ -161,7 +238,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     }
   };
 
-  // Handle Google SSO step -> Advance to Complete Profile
+  // ---------------------------------------------------------------------------
+  // 6. Handle Google SSO Details Confirmation
+  // ---------------------------------------------------------------------------
   const handleGoogleCompleteDetails = (e: React.FormEvent) => {
     e.preventDefault();
     if (!profileName.trim()) {
@@ -171,7 +250,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setMode('complete_profile');
   };
 
-  // Final Complete Profile Submission (saves role, bio, githubUrl, linkedinUrl)
+  // ---------------------------------------------------------------------------
+  // 7. Final Complete Profile Submission (saves role, bio, githubUrl, linkedinUrl)
+  // ---------------------------------------------------------------------------
   const handleFinishProfileSetup = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -211,7 +292,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     }
   };
 
-  const isCompactHeader = mode === 'login_email' || mode === 'register_email' || mode === 'complete_profile';
+  const isCompactHeader =
+    mode === 'login_email' ||
+    mode === 'register_first_time' ||
+    mode === 'register_email' ||
+    mode === 'complete_profile';
 
   return (
     <div className="h-screen bg-[#ECE6DA] text-slate-900 flex flex-col items-center justify-center overflow-hidden font-sans select-none relative">
@@ -292,7 +377,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 >
                   <img src={gLogo} alt="Google" className="w-5 h-5 object-contain" />
                   <span className="font-heading font-extrabold text-sm text-slate-900 tracking-tight">
-                    {isLoading ? 'Signing In...' : 'Sign In with Google'}
+                    {isLoading ? 'Checking Ticket...' : 'Sign In with Google'}
                   </span>
                 </button>
 
@@ -387,7 +472,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                       <button
                         type="button"
                         onClick={() => setEmail('')}
-                        className="text-slate-500 hover:text-slate-800 text-xs p-1"
+                        className="text-slate-500 hover:text-slate-800 text-xs p-1 cursor-pointer"
                       >
                         ✕
                       </button>
@@ -407,7 +492,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                       disabled={isLoading}
                       className="h-11 grow rounded-xl bg-slate-950 text-white text-xs font-heading font-extrabold hover:bg-slate-800 transition-transform active:scale-98 cursor-pointer flex items-center justify-center gap-2"
                     >
-                      {isLoading ? 'Checking Whitelist...' : 'Continue'}
+                      {isLoading ? 'Checking Ticket...' : 'Continue'}
                     </button>
                   </div>
                 </form>
@@ -415,7 +500,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             )}
 
             {/* ------------------------------------------------------------- */}
-            {/* 3. LOGIN - PASSWORD CONFIRMED STATE */}
+            {/* 3. LOGIN - PASSWORD CONFIRMED STATE (RETURNING ATTENDEE) */}
             {/* ------------------------------------------------------------- */}
             {mode === 'login_password' && (
               <motion.div
@@ -477,7 +562,100 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             )}
 
             {/* ------------------------------------------------------------- */}
-            {/* 4. REGISTRATION - EMAIL & PASSWORD STATE (Screen 1) */}
+            {/* 4. FIRST-TIME WHITELISTED USER ACCOUNT SETUP */}
+            {/* (Triggered when user signs in as normal but has NO profile yet) */}
+            {/* ------------------------------------------------------------- */}
+            {mode === 'register_first_time' && (
+              <motion.div
+                key="mode-register-first-time"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.18 }}
+                className="w-full space-y-2.5"
+              >
+                {/* Ticket Verified Badge */}
+                <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-emerald-800 bg-emerald-100 py-1.5 px-3.5 rounded-full border border-emerald-300 w-fit mx-auto shadow-xs">
+                  <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Ticket Verified: {email}</span>
+                </div>
+
+                <div className="text-center pb-1">
+                  <p className="text-xs text-slate-700 font-medium">
+                    Welcome to DevFest! Set your display name and password to get started.
+                  </p>
+                </div>
+
+                {/* Form: Profile Name, Password, Confirm Password */}
+                <form onSubmit={handleFirstTimeRegisterSubmit} className="space-y-2.5">
+                  {/* Profile Name */}
+                  <div className="w-full h-12 bg-[#DED8CC] focus-within:bg-[#E4DFD5] focus-within:ring-2 focus-within:ring-slate-900 transition-all rounded-2xl flex items-center gap-3.5 px-5 shadow-sm border border-[#CDC6B7]">
+                    <svg className="w-4.5 h-4.5 text-slate-700 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    <input
+                      type="text"
+                      value={profileName}
+                      onChange={(e) => setProfileName(e.target.value)}
+                      placeholder="Profile Name"
+                      required
+                      className="bg-transparent border-none outline-hidden text-sm font-medium text-slate-950 placeholder:text-slate-600 grow"
+                    />
+                  </div>
+
+                  {/* Create Password */}
+                  <div className="w-full h-12 bg-[#DED8CC] focus-within:bg-[#E4DFD5] focus-within:ring-2 focus-within:ring-slate-900 transition-all rounded-2xl flex items-center gap-3.5 px-5 shadow-sm border border-[#CDC6B7]">
+                    <span className="text-slate-700 text-xs font-mono font-bold">***</span>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Create Password"
+                      required
+                      className="bg-transparent border-none outline-hidden text-sm font-medium text-slate-950 placeholder:text-slate-600 grow"
+                    />
+                  </div>
+
+                  {/* Confirm Password */}
+                  <div className="w-full h-12 bg-[#DED8CC] focus-within:bg-[#E4DFD5] focus-within:ring-2 focus-within:ring-slate-900 transition-all rounded-2xl flex items-center gap-3.5 px-5 shadow-sm border border-[#CDC6B7]">
+                    <span className="text-slate-700 text-xs font-mono font-bold">***</span>
+                    <input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Confirm Password"
+                      required
+                      className="bg-transparent border-none outline-hidden text-sm font-medium text-slate-950 placeholder:text-slate-600 grow"
+                    />
+                  </div>
+
+                  {/* Submit Button */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setMode('login_email')}
+                      className="h-12 px-4 rounded-xl bg-transparent border border-slate-400 text-slate-700 text-xs font-bold hover:bg-black/5 cursor-pointer"
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="submit"
+                      className="h-12 grow rounded-2xl bg-slate-950 text-white text-xs font-heading font-extrabold hover:bg-slate-800 transition-transform active:scale-98 cursor-pointer flex items-center justify-center gap-2 shadow-sm"
+                    >
+                      <span>Continue to Profile Setup</span>
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            )}
+
+            {/* ------------------------------------------------------------- */}
+            {/* 5. REGISTRATION - MANUAL EMAIL & PASSWORD STATE (Screen 1) */}
             {/* ------------------------------------------------------------- */}
             {mode === 'register_email' && (
               <motion.div
@@ -598,7 +776,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             )}
 
             {/* ------------------------------------------------------------- */}
-            {/* 5. REGISTRATION - GOOGLE SSO STATE (Screen 2) */}
+            {/* 6. REGISTRATION - GOOGLE SSO STATE (Screen 2) */}
             {/* ------------------------------------------------------------- */}
             {mode === 'register_google' && (
               <motion.div
@@ -672,7 +850,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             )}
 
             {/* ------------------------------------------------------------- */}
-            {/* 6. COMPLETE YOUR PROFILE ONBOARDING STATE */}
+            {/* 7. COMPLETE YOUR PROFILE ONBOARDING STATE */}
             {/* ------------------------------------------------------------- */}
             {mode === 'complete_profile' && (
               <motion.div
@@ -715,6 +893,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                       onChange={(e) => setRole(e.target.value)}
                       placeholder="Role / Title (e.g. Student, AI Engineer)"
                       autoFocus
+                      required
                       className="bg-transparent border-none outline-hidden text-xs font-medium text-slate-950 placeholder:text-slate-600 grow"
                     />
                   </div>
@@ -729,6 +908,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                       value={bio}
                       onChange={(e) => setBio(e.target.value)}
                       placeholder="Short Bio (e.g. Building PWAs & ML models)"
+                      required
                       className="bg-transparent border-none outline-hidden text-xs font-medium text-slate-950 placeholder:text-slate-600 grow"
                     />
                   </div>
