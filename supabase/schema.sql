@@ -31,7 +31,6 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     email TEXT UNIQUE NOT NULL,
     full_name TEXT NOT NULL,
     company_role TEXT,
-    avatar_url TEXT,
     bio TEXT,
     github_url TEXT,
     linkedin_url TEXT,

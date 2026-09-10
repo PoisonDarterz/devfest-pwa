@@ -18,7 +18,13 @@ export const App: React.FC = () => {
   const [user, setUser] = useState<AuthUser | null>(() => {
     try {
       const stored = localStorage.getItem('devfest_auth_user');
-      return stored ? JSON.parse(stored) : null;
+      if (!stored) return null;
+      const parsed = JSON.parse(stored);
+      if (parsed.avatar && parsed.avatar.includes('googleusercontent.com')) {
+        parsed.avatar = '';
+        localStorage.setItem('devfest_auth_user', JSON.stringify(parsed));
+      }
+      return parsed;
     } catch {
       return null;
     }
@@ -73,7 +79,11 @@ export const App: React.FC = () => {
       }
 
       if (status.hasProfile && status.profile) {
-        handleLoginSuccess(status.profile);
+        // Use back normal email sign in avatar behavior (identicon generated from email/name)
+        handleLoginSuccess({
+          ...status.profile,
+          avatar: '',
+        });
       } else {
         setPendingGoogleUser({
           id: session.user.id,
@@ -82,7 +92,6 @@ export const App: React.FC = () => {
             session.user.user_metadata?.full_name ||
             session.user.user_metadata?.name ||
             googleEmail.split('@')[0],
-          avatar: session.user.user_metadata?.avatar_url || '',
         });
       }
     } catch (err: any) {

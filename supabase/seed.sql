@@ -172,14 +172,13 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- Insert User Profiles matching MOCK_USER_PROFILE and MOCK_DISCOVERED_FRIEND
-INSERT INTO public.profiles (id, email, full_name, company_role, avatar_url, bio, github_url, linkedin_url, qr_payload, ticket_type, is_ticket_verified, is_checked_in)
+INSERT INTO public.profiles (id, email, full_name, company_role, bio, github_url, linkedin_url, qr_payload, ticket_type, is_ticket_verified, is_checked_in)
 VALUES
   (
     '11111111-1111-1111-1111-111111111111',
     'zixu.cheah@devfest.kl',
     'Zixu Cheah',
     'Software Engineer',
-    '',
     'Full-stack engineer building high-performance web applications and PWAs.',
     'https://github.com/zixucheah',
     'https://linkedin.com/in/zixucheah',
@@ -193,7 +192,6 @@ VALUES
     'jonas.chuan@devfest.kl',
     'Jonas Chuan',
     'Mobile Developer',
-    '',
     'Building Android apps & PWAs. Passionate about Kotlin, Flutter, and web performance!',
     'https://github.com/jonaschuan',
     'https://linkedin.com/in/jonaschuan',

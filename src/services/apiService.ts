@@ -169,7 +169,7 @@ export const ApiService = {
             name: p.full_name,
             role: p.company_role || 'Participant',
             email: p.email,
-            avatar: p.avatar_url || '',
+            avatar: '',
             bio: p.bio || '',
             githubUrl: p.github_url || '',
             linkedinUrl: p.linkedin_url || '',
@@ -193,7 +193,7 @@ export const ApiService = {
             name: p.full_name,
             role: p.company_role || 'Participant',
             email: p.email,
-            avatar: p.avatar_url || '',
+            avatar: '',
             bio: p.bio || '',
             githubUrl: p.github_url || '',
             linkedinUrl: p.linkedin_url || '',
@@ -299,7 +299,7 @@ export const ApiService = {
           name: p.full_name,
           role: p.company_role || 'Participant',
           email: p.email,
-          avatar: p.avatar_url || '',
+          avatar: '',
           bio: p.bio || '',
           githubUrl: p.github_url || '',
           linkedinUrl: p.linkedin_url || '',
@@ -322,7 +322,6 @@ export const ApiService = {
     bio?: string;
     githubUrl?: string;
     linkedinUrl?: string;
-    avatar?: string;
   }): Promise<{ success: boolean; profile: UserProfile; message: string }> {
     const cleanEmail = profile.email.trim().toLowerCase();
     const qrPayload = `DEVFEST-KL-2026-${profile.name.toUpperCase().replace(/\s+/g, '-')}`;
@@ -341,7 +340,6 @@ export const ApiService = {
             bio: profile.bio,
             githubUrl: profile.githubUrl,
             linkedinUrl: profile.linkedinUrl,
-            avatar: profile.avatar,
           }),
         });
 
@@ -409,7 +407,7 @@ export const ApiService = {
           name: p.full_name,
           role: p.company_role || 'Participant',
           email: p.email,
-          avatar: p.avatar_url || '',
+          avatar: '',
           bio: p.bio || '',
           githubUrl: p.github_url || '',
           linkedinUrl: p.linkedin_url || '',
@@ -638,7 +636,7 @@ export const ApiService = {
             name: p.full_name,
             role: p.company_role || 'Participant',
             email: p.email,
-            avatar: p.avatar_url || '',
+            avatar: '',
             bio: p.bio || '',
             githubUrl: p.github_url || '',
             linkedinUrl: p.linkedin_url || '',

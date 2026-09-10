@@ -11,7 +11,6 @@ export interface PendingGoogleUser {
   id?: string;
   email: string;
   name: string;
-  avatar?: string;
 }
 
 interface LoginPageProps {
@@ -53,7 +52,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [profileName, setProfileName] = useState(initialPendingGoogleUser?.name || '');
   const [googleUserEmail, setGoogleUserEmail] = useState(initialPendingGoogleUser?.email || '');
   const [googleUserId, setGoogleUserId] = useState(initialPendingGoogleUser?.id || '');
-  const [googleUserAvatar, setGoogleUserAvatar] = useState(initialPendingGoogleUser?.avatar || '');
 
   // Form Fields - Complete Profile Additional Details
   const [role, setRole] = useState('');
@@ -71,7 +69,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       setGoogleUserEmail(initialPendingGoogleUser.email);
       setProfileName(initialPendingGoogleUser.name);
       setGoogleUserId(initialPendingGoogleUser.id || '');
-      setGoogleUserAvatar(initialPendingGoogleUser.avatar || '');
       setMode('complete_profile');
     }
   }, [initialPendingGoogleUser]);
@@ -288,7 +285,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         bio: activeBio,
         githubUrl: activeGithub,
         linkedinUrl: activeLinkedin,
-        avatar: googleUserAvatar || '',
       });
 
       if (result.success && result.profile) {

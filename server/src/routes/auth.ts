@@ -130,7 +130,7 @@ authRouter.post('/check-status', async (req: Request, res: Response): Promise<vo
           name: p.full_name,
           role: p.company_role || 'Participant',
           email: p.email,
-          avatar: p.avatar_url || '',
+          avatar: '',
           bio: p.bio || '',
           githubUrl: p.github_url || '',
           linkedinUrl: p.linkedin_url || '',
@@ -201,7 +201,7 @@ authRouter.post('/login', async (req: Request, res: Response): Promise<void> => 
       name: p.full_name,
       role: p.company_role || 'Participant',
       email: p.email,
-      avatar: p.avatar_url || '',
+      avatar: '',
       bio: p.bio || '',
       githubUrl: p.github_url || '',
       linkedinUrl: p.linkedin_url || '',
@@ -224,7 +224,7 @@ authRouter.post('/login', async (req: Request, res: Response): Promise<void> => 
 // 4. Register or Update User Profile (Saves directly to Supabase profiles table)
 // =============================================================================
 authRouter.post('/register', async (req: Request, res: Response): Promise<void> => {
-  const { id, email, name, password, role, bio, githubUrl, linkedinUrl, avatar } = req.body;
+  const { id, email, name, password, role, bio, githubUrl, linkedinUrl } = req.body;
 
   if (!email || !name) {
     res.status(400).json({ message: 'Email and name are required.' });
@@ -301,7 +301,6 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
     full_name: name.trim(),
     company_role: role?.trim() || 'Participant',
     ticket_type: ticketType || 'Standard Attendee',
-    avatar_url: avatar || '',
     bio: bio?.trim() || '',
     github_url: githubUrl?.trim() || '',
     linkedin_url: linkedinUrl?.trim() || '',
@@ -328,7 +327,7 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
         name: p.full_name,
         role: p.company_role || 'Participant',
         email: p.email,
-        avatar: p.avatar_url || '',
+        avatar: '',
         bio: p.bio || '',
         githubUrl: p.github_url || '',
         linkedinUrl: p.linkedin_url || '',
@@ -363,7 +362,7 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
             name: p.full_name,
             role: p.company_role || 'Participant',
             email: p.email,
-            avatar: p.avatar_url || '',
+            avatar: '',
             bio: p.bio || '',
             githubUrl: p.github_url || '',
             linkedinUrl: p.linkedin_url || '',
@@ -420,7 +419,7 @@ authRouter.get('/me', async (req: Request, res: Response): Promise<void> => {
           name: p.full_name,
           role: p.company_role || 'Participant',
           email: p.email,
-          avatar: p.avatar_url || '',
+          avatar: '',
           bio: p.bio || '',
           githubUrl: p.github_url || '',
           linkedinUrl: p.linkedin_url || '',
@@ -451,7 +450,7 @@ authRouter.get('/profile/:id', async (req: Request, res: Response): Promise<void
         name: profile.full_name,
         role: profile.company_role || 'Participant',
         email: profile.email,
-        avatar: profile.avatar_url || '',
+        avatar: '',
         bio: profile.bio || '',
         githubUrl: profile.github_url || '',
         linkedinUrl: profile.linkedin_url || '',

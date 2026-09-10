@@ -44,3 +44,6 @@ CREATE POLICY "Allow public delete to profiles" ON public.profiles FOR DELETE US
 -- This allows attendees with custom/whitelisted emails (including @devfest.kl) to register cleanly
 ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_id_fkey;
 ALTER TABLE public.profiles ALTER COLUMN id SET DEFAULT gen_random_uuid();
+
+-- 6. Remove avatar_url column from profiles table
+ALTER TABLE public.profiles DROP COLUMN IF EXISTS avatar_url;
