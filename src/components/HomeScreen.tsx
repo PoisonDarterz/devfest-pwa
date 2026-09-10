@@ -104,17 +104,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, initialUser })
   // Load Data via Service Layer
   useEffect(() => {
     async function loadInitialData() {
-      const [fetchedSessions, fetchedBooths, fetchedFaqs, fetchedUser, fetchedFriend] = await Promise.all([
+      const activeEmail = initialUser?.email || userProfile.email;
+      const [fetchedSessions, fetchedBooths, fetchedFaqs, fetchedUser, fetchedSavedSessions, fetchedFriend] = await Promise.all([
         ApiService.getSessions(),
         ApiService.getBooths(),
         ApiService.getFAQs(),
-        ApiService.getUserProfile(),
+        ApiService.getUserProfile(activeEmail),
+        ApiService.getSavedSessions(activeEmail),
         ApiService.getProfileById('22222222-2222-2222-2222-222222222222'),
       ]);
       setSessions(fetchedSessions);
       setBooths(fetchedBooths);
       setFaqs(fetchedFaqs);
       if (fetchedUser) setUserProfile(fetchedUser);
+      if (fetchedSavedSessions && fetchedSavedSessions.length > 0) {
+        setSavedSessionIds(fetchedSavedSessions);
+      }
       if (fetchedFriend) {
         setDiscoveredFriend({
           name: fetchedFriend.name,
@@ -128,27 +133,35 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, initialUser })
       }
     }
     loadInitialData();
-  }, []);
+  }, [initialUser]);
 
-  // Toggle saving/bookmarking a session
+  // Toggle saving/bookmarking a session with live backend persistence
   const handleToggleSaveSession = async (sessionId: string) => {
+    const activeEmail = userProfile.email;
     const isSaved = savedSessionIds.includes(sessionId);
-    let updated: string[];
-    if (isSaved) {
-      updated = savedSessionIds.filter(id => id !== sessionId);
-    } else {
-      updated = [...savedSessionIds, sessionId];
-      // Request notification permission when bookmarking
-      if ('Notification' in window && Notification.permission === 'default') {
-        try {
-          await Notification.requestPermission();
-        } catch (err) {
-          console.warn('Failed to request notification permission:', err);
-        }
+    
+    // Optimistic UI update
+    const updated = isSaved
+      ? savedSessionIds.filter(id => id !== sessionId)
+      : [...savedSessionIds, sessionId];
+    setSavedSessionIds(updated);
+
+    if (!isSaved && 'Notification' in window && Notification.permission === 'default') {
+      try {
+        await Notification.requestPermission();
+      } catch (err) {
+        console.warn('Failed to request notification permission:', err);
       }
     }
-    setSavedSessionIds(updated);
-    localStorage.setItem('devfest_saved_sessions', JSON.stringify(updated));
+
+    try {
+      const res = await ApiService.toggleSaveSession(activeEmail, sessionId);
+      if (res.savedSessionIds) {
+        setSavedSessionIds(res.savedSessionIds);
+      }
+    } catch (err) {
+      console.warn('Failed to sync saved session to backend:', err);
+    }
   };
 
   // Simulate notification trigger

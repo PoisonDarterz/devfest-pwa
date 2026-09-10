@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     bio TEXT,
     github_url TEXT,
     linkedin_url TEXT,
+    password_hash TEXT,
     nfc_token TEXT UNIQUE,
     ticket_type TEXT NOT NULL DEFAULT 'Standard Attendee',
     is_ticket_verified BOOLEAN DEFAULT false,
@@ -89,6 +90,19 @@ CREATE TABLE IF NOT EXISTS public.sessions (
     description TEXT,
     created_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- -----------------------------------------------------------------------------
+-- 4.1 USER SAVED SESSIONS TABLE (Conference Session Bookmarks)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.user_saved_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_email TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(user_email, session_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_saved_sessions_email ON public.user_saved_sessions(LOWER(user_email));
 
 -- -----------------------------------------------------------------------------
 -- 5. BOOTHS TABLE (Sponsor & Partner Exhibition Booths)
@@ -311,3 +325,13 @@ ALTER TABLE public.faqs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow public read access to booths" ON public.booths FOR SELECT USING (true);
 CREATE POLICY "Allow public read access to sessions" ON public.sessions FOR SELECT USING (true);
 CREATE POLICY "Allow public read access to faqs" ON public.faqs FOR SELECT USING (true);
+
+-- Enable RLS and policies for profiles & saved sessions
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public select to profiles" ON public.profiles FOR SELECT USING (true);
+CREATE POLICY "Allow public insert to profiles" ON public.profiles FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update to profiles" ON public.profiles FOR UPDATE USING (true);
+
+ALTER TABLE public.user_saved_sessions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public read and write access to user_saved_sessions" ON public.user_saved_sessions FOR ALL USING (true) WITH CHECK (true);
+

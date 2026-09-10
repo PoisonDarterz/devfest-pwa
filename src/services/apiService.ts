@@ -23,7 +23,7 @@ export interface UserProfile {
   qrPayload: string;
 }
 
-const USE_NODE_BACKEND = import.meta.env.VITE_USE_NODE_BACKEND === 'true';
+const USE_NODE_BACKEND = import.meta.env.VITE_USE_NODE_BACKEND !== 'false';
 const NODE_API_BASE_URL = import.meta.env.VITE_NODE_API_URL || 'http://localhost:5000/api';
 
 export const ApiService = {
@@ -135,27 +135,148 @@ export const ApiService = {
   },
 
   // Fetch Current User Profile
-  async getUserProfile(): Promise<UserProfile | null> {
-    try {
-      const { data, error } = await supabase.from('profiles').select('*').limit(1);
-      if (!error && data && data.length > 0) {
-        const p = data[0];
-        return {
-          id: p.id,
-          name: p.full_name,
-          role: p.company_role || 'Participant',
-          email: p.email,
-          avatar: p.avatar_url || '',
-          bio: p.bio || '',
-          githubUrl: p.github_url || '',
-          linkedinUrl: p.linkedin_url || '',
-          qrPayload: p.qr_payload || '',
-        };
+  async getUserProfile(email?: string): Promise<UserProfile | null> {
+    const targetEmail = email ? email.trim().toLowerCase() : null;
+
+    if (targetEmail) {
+      if (USE_NODE_BACKEND) {
+        try {
+          const res = await fetch(`${NODE_API_BASE_URL}/auth/check-status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: targetEmail }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.profile) return data.profile;
+          }
+        } catch (err) {
+          console.warn('Node backend fetch failed for user profile by email:', err);
+        }
       }
-    } catch (err) {
-      console.error('Database query failed for user profile:', err);
+
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('email', targetEmail)
+          .limit(1);
+
+        if (!error && data && data.length > 0) {
+          const p = data[0];
+          return {
+            id: p.id,
+            name: p.full_name,
+            role: p.company_role || 'Participant',
+            email: p.email,
+            avatar: p.avatar_url || '',
+            bio: p.bio || '',
+            githubUrl: p.github_url || '',
+            linkedinUrl: p.linkedin_url || '',
+            qrPayload: p.qr_payload || '',
+          };
+        }
+      } catch (err) {
+        console.error('Database query failed for user profile by email:', err);
+      }
+    } else {
+      // Fallback when no email is provided: try session token
+      const sessionUser = await this.getCurrentUser();
+      if (sessionUser) return sessionUser;
+
+      try {
+        const { data, error } = await supabase.from('profiles').select('*').limit(1);
+        if (!error && data && data.length > 0) {
+          const p = data[0];
+          return {
+            id: p.id,
+            name: p.full_name,
+            role: p.company_role || 'Participant',
+            email: p.email,
+            avatar: p.avatar_url || '',
+            bio: p.bio || '',
+            githubUrl: p.github_url || '',
+            linkedinUrl: p.linkedin_url || '',
+            qrPayload: p.qr_payload || '',
+          };
+        }
+      } catch (err) {
+        console.error('Database query failed for user profile:', err);
+      }
     }
     return null;
+  },
+
+  // Log In User with Email & Password
+  async loginUser(email: string, password: string): Promise<{
+    success: boolean;
+    user?: UserProfile;
+    token?: string;
+    message?: string;
+  }> {
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (USE_NODE_BACKEND) {
+      try {
+        const res = await fetch(`${NODE_API_BASE_URL}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: cleanEmail, password }),
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success && data.user) {
+          if (data.token) {
+            localStorage.setItem('devfest_auth_token', data.token);
+          }
+          localStorage.setItem('devfest_auth_user', JSON.stringify(data.user));
+          return { success: true, user: data.user, token: data.token };
+        } else {
+          return { success: false, message: data.message || 'Login failed.' };
+        }
+      } catch (err) {
+        console.warn('Node backend login failed, falling back to local verification:', err);
+      }
+    }
+
+    // Direct database/demo fallback
+    const status = await this.checkUserStatus(cleanEmail);
+    if (status.hasProfile && status.profile) {
+      localStorage.setItem('devfest_auth_user', JSON.stringify(status.profile));
+      return { success: true, user: status.profile };
+    }
+
+    return { success: false, message: 'Invalid credentials or user not found.' };
+  },
+
+  // Get Current Logged-in User Session
+  async getCurrentUser(): Promise<UserProfile | null> {
+    const token = localStorage.getItem('devfest_auth_token');
+
+    if (token && USE_NODE_BACKEND) {
+      try {
+        const res = await fetch(`${NODE_API_BASE_URL}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.user) {
+            localStorage.setItem('devfest_auth_user', JSON.stringify(data.user));
+            return data.user;
+          }
+        }
+      } catch (err) {
+        console.warn('Session verification with backend failed:', err);
+      }
+    }
+
+    // Fallback to locally persisted user object
+    try {
+      const stored = localStorage.getItem('devfest_auth_user');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
   },
 
   // Fetch Profile by ID (e.g. Discovered Friend)
@@ -191,16 +312,19 @@ export const ApiService = {
     return null;
   },
 
-  // Save or Update User Profile
+  // Save or Update User Profile (Including Password)
   async saveUserProfile(profile: {
+    id?: string;
     name: string;
     email: string;
+    password?: string;
     role?: string;
     bio?: string;
     githubUrl?: string;
     linkedinUrl?: string;
     avatar?: string;
   }): Promise<{ success: boolean; profile: UserProfile; message: string }> {
+    const cleanEmail = profile.email.trim().toLowerCase();
     const qrPayload = `DEVFEST-KL-2026-${profile.name.toUpperCase().replace(/\s+/g, '-')}`;
 
     if (USE_NODE_BACKEND) {
@@ -209,29 +333,63 @@ export const ApiService = {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            id: profile.id,
             name: profile.name,
-            email: profile.email,
+            email: cleanEmail,
+            password: profile.password,
             role: profile.role,
             bio: profile.bio,
             githubUrl: profile.githubUrl,
             linkedinUrl: profile.linkedinUrl,
+            avatar: profile.avatar,
           }),
         });
-        if (res.ok) {
-          const json = await res.json();
-          return { success: true, profile: json.user, message: 'Profile saved successfully!' };
+
+        const json = await res.json();
+        if (res.ok && json.success && json.user) {
+          if (json.token) {
+            localStorage.setItem('devfest_auth_token', json.token);
+          }
+          localStorage.setItem('devfest_auth_user', JSON.stringify(json.user));
+          return { success: true, profile: json.user, message: json.message || 'Profile registered successfully!' };
+        } else {
+          return {
+            success: false,
+            profile: null as any,
+            message: json.message || 'Failed to register profile on server.',
+          };
         }
-      } catch (err) {
-        console.warn('Node backend save user profile failed:', err);
+      } catch (err: any) {
+        console.error('Node backend save user profile failed:', err);
+        return {
+          success: false,
+          profile: null as any,
+          message: err?.message || 'Unable to reach backend server.',
+        };
       }
     }
 
     try {
+      let profileId = crypto.randomUUID ? crypto.randomUUID() : '';
+      try {
+        const { data: existingProf } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', cleanEmail)
+          .limit(1);
+        if (existingProf && existingProf.length > 0 && existingProf[0].id) {
+          profileId = existingProf[0].id;
+        }
+      } catch {
+        // ignore
+      }
+
       const { data, error } = await supabase
         .from('profiles')
         .upsert(
           {
-            email: profile.email,
+            id: profileId || undefined,
+            email: cleanEmail,
             full_name: profile.name,
             company_role: profile.role || 'Participant',
             bio: profile.bio || '',
@@ -246,41 +404,120 @@ export const ApiService = {
 
       if (!error && data && data.length > 0) {
         const p = data[0];
+        const savedProfile: UserProfile = {
+          id: p.id,
+          name: p.full_name,
+          role: p.company_role || 'Participant',
+          email: p.email,
+          avatar: p.avatar_url || '',
+          bio: p.bio || '',
+          githubUrl: p.github_url || '',
+          linkedinUrl: p.linkedin_url || '',
+          qrPayload: p.qr_payload || qrPayload,
+        };
+        localStorage.setItem('devfest_auth_user', JSON.stringify(savedProfile));
         return {
           success: true,
-          profile: {
-            id: p.id,
-            name: p.full_name,
-            role: p.company_role || 'Participant',
-            email: p.email,
-            avatar: p.avatar_url || '',
-            bio: p.bio || '',
-            githubUrl: p.github_url || '',
-            linkedinUrl: p.linkedin_url || '',
-            qrPayload: p.qr_payload || qrPayload,
-          },
+          profile: savedProfile,
           message: 'Profile saved successfully!',
         };
+      } else if (error) {
+        return {
+          success: false,
+          profile: null as any,
+          message: `Database error: ${error.message}`,
+        };
       }
-    } catch (err) {
-      console.warn('Database save user profile failed:', err);
+    } catch (err: any) {
+      console.error('Database save user profile failed:', err);
+      return {
+        success: false,
+        profile: null as any,
+        message: `Database error: ${err?.message || 'Save failed'}`,
+      };
     }
 
     return {
-      success: true,
-      profile: {
-        id: 'usr_local',
-        name: profile.name,
-        role: profile.role || 'Participant',
-        email: profile.email,
-        avatar: profile.avatar || '',
-        bio: profile.bio || '',
-        githubUrl: profile.githubUrl || '',
-        linkedinUrl: profile.linkedinUrl || '',
-        qrPayload,
-      },
-      message: 'Profile saved locally!',
+      success: false,
+      profile: null as any,
+      message: 'Failed to save profile to database.',
     };
+  },
+
+  // Fetch Saved Session IDs for User
+  async getSavedSessions(email: string): Promise<string[]> {
+    if (!email) return [];
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (USE_NODE_BACKEND) {
+      try {
+        const res = await fetch(`${NODE_API_BASE_URL}/sessions/saved?email=${encodeURIComponent(cleanEmail)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.savedSessionIds)) {
+            localStorage.setItem(`devfest_saved_sessions_${cleanEmail}`, JSON.stringify(data.savedSessionIds));
+            return data.savedSessionIds;
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch saved sessions from Node backend:', err);
+      }
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('user_saved_sessions')
+        .select('session_id')
+        .eq('user_email', cleanEmail);
+
+      if (!error && data) {
+        const ids = data.map((r) => r.session_id);
+        localStorage.setItem(`devfest_saved_sessions_${cleanEmail}`, JSON.stringify(ids));
+        return ids;
+      }
+    } catch (err) {
+      console.warn('Supabase query failed for saved sessions:', err);
+    }
+
+    try {
+      const cached = localStorage.getItem(`devfest_saved_sessions_${cleanEmail}`);
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  },
+
+  // Toggle Save / Bookmark Conference Session
+  async toggleSaveSession(email: string, sessionId: string): Promise<{ isSaved: boolean; savedSessionIds: string[] }> {
+    if (!email || !sessionId) return { isSaved: false, savedSessionIds: [] };
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (USE_NODE_BACKEND) {
+      try {
+        const res = await fetch(`${NODE_API_BASE_URL}/sessions/saved`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: cleanEmail, sessionId }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.savedSessionIds)) {
+            localStorage.setItem(`devfest_saved_sessions_${cleanEmail}`, JSON.stringify(data.savedSessionIds));
+            return data;
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to toggle saved session on Node backend:', err);
+      }
+    }
+
+    // LocalStorage fallback
+    const current = await this.getSavedSessions(cleanEmail);
+    const alreadySaved = current.includes(sessionId);
+    const updated = alreadySaved ? current.filter((id) => id !== sessionId) : [...current, sessionId];
+    localStorage.setItem(`devfest_saved_sessions_${cleanEmail}`, JSON.stringify(updated));
+
+    return { isSaved: !alreadySaved, savedSessionIds: updated };
   },
 
   // Submit Stamp Claim
@@ -346,7 +583,7 @@ export const ApiService = {
       }
     }
 
-    // 1. Check whitelist
+    // 1. Check whitelist in database
     let isWhitelisted = false;
     let ticketType = 'Standard Attendee';
 
@@ -371,11 +608,6 @@ export const ApiService = {
       }
     } catch (err) {
       console.warn('Whitelist query failed:', err);
-    }
-
-    // Demo fallback for test users
-    if (!isWhitelisted && (cleanEmail.includes('devfest') || cleanEmail.includes('gmail') || cleanEmail.length > 5)) {
-      isWhitelisted = true;
     }
 
     if (!isWhitelisted) {
@@ -412,33 +644,12 @@ export const ApiService = {
             linkedinUrl: p.linkedin_url || '',
             qrPayload: p.qr_payload || '',
           },
-          ticketType,
+          ticketType: p.ticket_type || ticketType,
           message: 'User profile found!',
         };
       }
     } catch (err) {
       console.warn('Profile lookup failed:', err);
-    }
-
-    // Demo check: If email is zixu or jonas and DB is unreachable, consider registered
-    if (cleanEmail === 'zixu.cheah@devfest.kl') {
-      return {
-        isWhitelisted: true,
-        hasProfile: true,
-        profile: {
-          id: '11111111-1111-1111-1111-111111111111',
-          name: 'Zixu Cheah',
-          role: 'Software Engineer',
-          email: 'zixu.cheah@devfest.kl',
-          avatar: '',
-          bio: 'Full-stack engineer building high-performance web applications and PWAs.',
-          githubUrl: 'https://github.com/zixucheah',
-          linkedinUrl: 'https://linkedin.com/in/zixucheah',
-          qrPayload: 'DEVFEST-KL-2026-ZIXU-CHEAH-SW',
-        },
-        ticketType,
-        message: 'User profile found!',
-      };
     }
 
     return {
@@ -452,12 +663,14 @@ export const ApiService = {
 
   // Validate Email Whitelist
   async validateEmailWhitelist(email: string): Promise<{ isWhitelisted: boolean; ticketType: string; message: string }> {
+    const cleanEmail = email.trim().toLowerCase();
+
     if (USE_NODE_BACKEND) {
       try {
         const res = await fetch(`${NODE_API_BASE_URL}/auth/validate-ticket`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({ email: cleanEmail }),
         });
         if (res.ok) return await res.json();
       } catch (err) {
@@ -466,17 +679,35 @@ export const ApiService = {
     }
 
     try {
-      const { data, error } = await supabase.rpc('validate_registration_email', { user_email: email });
-      if (!error && data && data.length > 0) {
+      const { data, error } = await supabase.rpc('validate_registration_email', { user_email: cleanEmail });
+      if (!error && data && data.length > 0 && data[0].is_whitelisted) {
         const res = data[0];
         return {
-          isWhitelisted: !!res.is_whitelisted,
+          isWhitelisted: true,
           ticketType: res.ticket_type || 'Standard Attendee',
-          message: res.is_whitelisted ? 'Email verified against ticket records!' : 'Email not found in ticketed whitelist.',
+          message: 'Email verified against ticket records!',
         };
       }
     } catch (err) {
       console.error('Email whitelist validation failed:', err);
+    }
+
+    try {
+      const { data: directWl } = await supabase
+        .from('ticketing_whitelists')
+        .select('*')
+        .eq('email', cleanEmail)
+        .limit(1);
+
+      if (directWl && directWl.length > 0) {
+        return {
+          isWhitelisted: true,
+          ticketType: directWl[0].ticket_type || 'Standard Attendee',
+          message: 'Email verified against ticket records!',
+        };
+      }
+    } catch (err) {
+      console.error('Direct whitelist table check failed:', err);
     }
 
     return {

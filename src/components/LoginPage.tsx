@@ -1,10 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import bgIcons from '../assets/bg-icons.svg';
 import gLogo from '../assets/g-logo.png';
 import GdgKlLogo from './common/GdgKlLogo';
 import { getAvatarUrl } from '../lib/avatar';
-import { ApiService, type UserProfile } from '../services/apiService';
+import { ApiService } from '../services/apiService';
+import { supabase } from '../lib/supabase';
+
+export interface PendingGoogleUser {
+  id?: string;
+  email: string;
+  name: string;
+  avatar?: string;
+}
 
 interface LoginPageProps {
   onLoginSuccess: (userProfile: {
@@ -16,6 +24,8 @@ interface LoginPageProps {
     githubUrl?: string;
     linkedinUrl?: string;
   }) => void;
+  initialPendingGoogleUser?: PendingGoogleUser | null;
+  initialErrorMessage?: string | null;
 }
 
 type AuthMode =
@@ -27,18 +37,23 @@ type AuthMode =
   | 'register_google'
   | 'complete_profile';
 
-export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
-  const [mode, setMode] = useState<AuthMode>('login_initial');
+export const LoginPage: React.FC<LoginPageProps> = ({
+  onLoginSuccess,
+  initialPendingGoogleUser,
+  initialErrorMessage,
+}) => {
+  const [mode, setMode] = useState<AuthMode>(
+    initialPendingGoogleUser ? 'complete_profile' : 'login_initial'
+  );
 
   // Form Fields - Credentials
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(initialPendingGoogleUser?.email || '');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [profileName, setProfileName] = useState('');
-  const [googleUserEmail, setGoogleUserEmail] = useState('zixu.cheah@devfest.kl');
-
-  // Existing Profile Cache (if returning user)
-  const [existingProfile, setExistingProfile] = useState<UserProfile | null>(null);
+  const [profileName, setProfileName] = useState(initialPendingGoogleUser?.name || '');
+  const [googleUserEmail, setGoogleUserEmail] = useState(initialPendingGoogleUser?.email || '');
+  const [googleUserId, setGoogleUserId] = useState(initialPendingGoogleUser?.id || '');
+  const [googleUserAvatar, setGoogleUserAvatar] = useState(initialPendingGoogleUser?.avatar || '');
 
   // Form Fields - Complete Profile Additional Details
   const [role, setRole] = useState('');
@@ -48,47 +63,51 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
   // Interactive States
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(initialErrorMessage || null);
+
+  useEffect(() => {
+    if (initialPendingGoogleUser) {
+      setEmail(initialPendingGoogleUser.email);
+      setGoogleUserEmail(initialPendingGoogleUser.email);
+      setProfileName(initialPendingGoogleUser.name);
+      setGoogleUserId(initialPendingGoogleUser.id || '');
+      setGoogleUserAvatar(initialPendingGoogleUser.avatar || '');
+      setMode('complete_profile');
+    }
+  }, [initialPendingGoogleUser]);
+
+  useEffect(() => {
+    if (initialErrorMessage) {
+      setErrorMessage(initialErrorMessage);
+    }
+  }, [initialErrorMessage]);
 
   // ---------------------------------------------------------------------------
-  // 1. Handle Google Sign In (SSO)
+  // 1. Handle Google Sign In (SSO via Supabase OAuth)
   // ---------------------------------------------------------------------------
-  const handleGoogleSignIn = async (isFromRegister = false) => {
+  const handleGoogleSignIn = async (_isFromRegister = false) => {
     setIsLoading(true);
     setErrorMessage(null);
 
-    const targetEmail = isFromRegister
-      ? (email.trim() || 'zixu.cheah@devfest.kl')
-      : (email.trim() || 'zixu.cheah@devfest.kl');
-
     try {
-      const status = await ApiService.checkUserStatus(targetEmail);
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}${window.location.pathname}`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'select_account',
+          },
+        },
+      });
 
-      if (!status.isWhitelisted) {
-        setErrorMessage(status.message || 'This Google account is not on the ticketed whitelist.');
+      if (error) {
+        setErrorMessage(error.message || 'Google Sign In failed.');
         setIsLoading(false);
-        return;
       }
-
-      setGoogleUserEmail(targetEmail);
-
-      if (status.hasProfile && status.profile) {
-        // Existing user with completed profile -> direct login to Home Screen!
-        onLoginSuccess(status.profile);
-      } else {
-        // Whitelisted user who has NOT registered a profile yet -> go to Complete Your Profile!
-        const defaultName = targetEmail
-          .split('@')[0]
-          .replace(/[._]/g, ' ')
-          .replace(/\b\w/g, (c) => c.toUpperCase());
-
-        setProfileName(defaultName);
-        setMode('complete_profile');
-      }
-    } catch (err) {
-      console.error('Google Sign In check failed:', err);
-      setErrorMessage('Sign in failed. Please try again.');
-    } finally {
+    } catch (err: any) {
+      console.error('Google Sign In error:', err);
+      setErrorMessage(err?.message || 'Google Sign In failed. Please try again.');
       setIsLoading(false);
     }
   };
@@ -117,7 +136,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
       if (status.hasProfile && status.profile) {
         // Returning attendee with registered profile -> prompt for password
-        setExistingProfile(status.profile);
         setMode('login_password');
       } else {
         // Whitelisted ticket holder, but has NOT registered a profile yet!
@@ -142,7 +160,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   // ---------------------------------------------------------------------------
   // 3. Handle Returning User Password Submit
   // ---------------------------------------------------------------------------
-  const handleLoginPasswordSubmit = (e: React.FormEvent) => {
+  const handleLoginPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!password.trim()) {
       setErrorMessage('Please enter your password.');
@@ -152,25 +170,20 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setIsLoading(true);
     setErrorMessage(null);
 
-    setTimeout(() => {
-      setIsLoading(false);
-      if (existingProfile) {
-        onLoginSuccess(existingProfile);
+    try {
+      const result = await ApiService.loginUser(email.trim(), password.trim());
+      if (result.success && result.user) {
+        setIsLoading(false);
+        onLoginSuccess(result.user);
+        return;
       } else {
-        const username = email.split('@')[0].replace(/[._]/g, ' ');
-        const formattedName = username
-          .split(' ')
-          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-          .join(' ');
-
-        onLoginSuccess({
-          name: formattedName || 'DevFest Attendee',
-          email: email.trim(),
-          role: 'Participant',
-          avatar: '',
-        });
+        setIsLoading(false);
+        setErrorMessage(result.message || 'Invalid email or password.');
       }
-    }, 500);
+    } catch {
+      setIsLoading(false);
+      setErrorMessage('Login failed. Please try again.');
+    }
   };
 
   // ---------------------------------------------------------------------------
@@ -267,28 +280,27 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
     try {
       const result = await ApiService.saveUserProfile({
+        id: googleUserId || undefined,
         name: activeName,
         email: activeEmail,
+        password: password.trim() || undefined,
         role: activeRole,
         bio: activeBio,
         githubUrl: activeGithub,
         linkedinUrl: activeLinkedin,
-        avatar: '',
+        avatar: googleUserAvatar || '',
       });
 
+      if (result.success && result.profile) {
+        setIsLoading(false);
+        onLoginSuccess(result.profile);
+      } else {
+        setIsLoading(false);
+        setErrorMessage(result.message || 'Failed to save profile.');
+      }
+    } catch (err: any) {
       setIsLoading(false);
-      onLoginSuccess(result.profile);
-    } catch {
-      setIsLoading(false);
-      onLoginSuccess({
-        name: activeName,
-        email: activeEmail,
-        role: activeRole,
-        bio: activeBio,
-        githubUrl: activeGithub,
-        linkedinUrl: activeLinkedin,
-        avatar: '',
-      });
+      setErrorMessage(err?.message || 'Registration failed. Please try again.');
     }
   };
 
