@@ -4,7 +4,7 @@ import { checkNFCSupport } from '../lib/nfc';
 import { getAvatarUrl } from '../lib/avatar';
 import { ApiService } from '../services/apiService';
 import type { UserProfile } from '../services/apiService';
-import type { Session, Booth, FAQItem } from '../lib/types';
+import type { Session, Booth, FAQItem, AppNotification } from '../lib/types';
 
 // Common Components
 import bgIcons from '../assets/bg-icons.svg';
@@ -42,12 +42,13 @@ interface HomeScreenProps {
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, initialUser }) => {
   // Drawer View State
   const [sheetState, setSheetState] = useState<'home' | 'scan_qr_1' | 'scan_qr_2' | 'participant_profile' | 'booth_profile' | 'rewards' | 'faq'>('home');
-  const [activeModal, setActiveModal] = useState<'rewards' | 'faq' | 'venue_map' | 'about_gdg' | 'friends' | 'session' | 'profile' | null>(null);
+  const [activeModal, setActiveModal] = useState<'rewards' | 'faq' | 'venue_map' | 'about_gdg' | 'friends' | 'session' | 'profile' | 'notifications' | null>(null);
 
   // Data States
   const [booths, setBooths] = useState<Booth[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [faqs, setFaqs] = useState<FAQItem[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [userProfile, setUserProfile] = useState<UserProfile>({
     id: 'usr_123',
     name: initialUser?.name || 'Zixu Cheah',
@@ -105,13 +106,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, initialUser })
   useEffect(() => {
     async function loadInitialData() {
       const activeEmail = initialUser?.email || userProfile.email;
-      const [fetchedSessions, fetchedBooths, fetchedFaqs, fetchedUser, fetchedSavedSessions, fetchedFriend] = await Promise.all([
+      const [fetchedSessions, fetchedBooths, fetchedFaqs, fetchedUser, fetchedSavedSessions, fetchedFriend, fetchedNotifs] = await Promise.all([
         ApiService.getSessions(),
         ApiService.getBooths(),
         ApiService.getFAQs(),
         ApiService.getUserProfile(activeEmail),
         ApiService.getSavedSessions(activeEmail),
         ApiService.getProfileById('22222222-2222-2222-2222-222222222222'),
+        ApiService.getNotifications(activeEmail),
       ]);
       setSessions(fetchedSessions);
       setBooths(fetchedBooths);
@@ -119,6 +121,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, initialUser })
       if (fetchedUser) setUserProfile(fetchedUser);
       if (fetchedSavedSessions && fetchedSavedSessions.length > 0) {
         setSavedSessionIds(fetchedSavedSessions);
+      }
+      if (fetchedNotifs && fetchedNotifs.notifications) {
+        setNotifications(fetchedNotifs.notifications);
       }
       if (fetchedFriend) {
         setDiscoveredFriend({
@@ -159,10 +164,34 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, initialUser })
       if (res.savedSessionIds) {
         setSavedSessionIds(res.savedSessionIds);
       }
+      if (typeof res.rsvpCount === 'number') {
+        setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, rsvpCount: res.rsvpCount } : s));
+      }
     } catch (err) {
       console.warn('Failed to sync saved session to backend:', err);
     }
   };
+
+  // Notification action handlers
+  const handleMarkNotificationRead = async (id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+    try {
+      await ApiService.markNotificationRead(userProfile.email, id);
+    } catch (err) {
+      console.warn('Failed to mark notification read:', err);
+    }
+  };
+
+  const handleMarkAllNotificationsRead = async () => {
+    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    try {
+      await ApiService.markAllNotificationsRead(userProfile.email);
+    } catch (err) {
+      console.warn('Failed to mark all notifications read:', err);
+    }
+  };
+
+  const unreadNotifCount = notifications.filter(n => !n.isRead).length;
 
   // Simulate notification trigger
   const handleSimulateAlert = (session: Session) => {
@@ -420,13 +449,33 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, initialUser })
               </span>
             </div>
 
-            <button
-              onClick={() => setActiveModal('profile')}
-              className="w-10 h-10 rounded-full border-2 border-emerald-900 overflow-hidden bg-slate-200 shadow-md transition-transform active:scale-95 cursor-pointer"
-              aria-label="User Profile"
-            >
-              <img src={getAvatarUrl(userProfile.avatar, userProfile.email || userProfile.name)} alt="User Profile" className="w-full h-full object-cover" />
-            </button>
+            <div className="flex items-center gap-2.5">
+              {/* Notification Bell Button */}
+              <button
+                onClick={() => setActiveModal('notifications')}
+                className="w-10 h-10 rounded-full bg-slate-900/80 hover:bg-slate-900 text-white flex items-center justify-center relative shadow-md transition-transform active:scale-95 cursor-pointer border border-white/20"
+                aria-label="Notifications"
+                title="Conference Notifications & Announcements"
+              >
+                <svg className="w-5 h-5 text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                {unreadNotifCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center shadow-lg border-2 border-[#3B9E59] animate-pulse">
+                    {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+                  </span>
+                )}
+              </button>
+
+              {/* User Profile Avatar */}
+              <button
+                onClick={() => setActiveModal('profile')}
+                className="w-10 h-10 rounded-full border-2 border-emerald-900 overflow-hidden bg-slate-200 shadow-md transition-transform active:scale-95 cursor-pointer"
+                aria-label="User Profile"
+              >
+                <img src={getAvatarUrl(userProfile.avatar, userProfile.email || userProfile.name)} alt="User Profile" className="w-full h-full object-cover" />
+              </button>
+            </div>
           </div>
 
           {/* ONGOING SESSIONS */}
@@ -711,6 +760,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, initialUser })
           onToggleSaveSession={handleToggleSaveSession}
           onSimulateAlert={handleSimulateAlert}
           onLogout={onLogout}
+          notifications={notifications}
+          onMarkNotificationRead={handleMarkNotificationRead}
+          onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
         />
 
         {/* INDIVIDUAL REWARD REDEEM POPUP MODAL */}

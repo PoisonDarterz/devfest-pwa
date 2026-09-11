@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import type { Booth, Session, FAQItem } from '../lib/types';
+import type { Booth, Session, FAQItem, AppNotification } from '../lib/types';
 
 export interface RewardItem {
   id: string;
@@ -28,18 +28,30 @@ const NODE_API_BASE_URL = import.meta.env.VITE_NODE_API_URL || 'http://localhost
 
 export const ApiService = {
   // Fetch Sessions Agenda
-  async getSessions(): Promise<Session[]> {
+  async getSessions(track?: string): Promise<Session[]> {
+    const trackParam = track && track !== 'All' ? `?track=${encodeURIComponent(track)}` : '';
+
     if (USE_NODE_BACKEND) {
       try {
-        const res = await fetch(`${NODE_API_BASE_URL}/sessions`);
-        if (res.ok) return await res.json();
+        const res = await fetch(`${NODE_API_BASE_URL}/sessions${trackParam}`);
+        if (res.ok) {
+          const sessions = await res.json();
+          return sessions.map((s: any) => ({
+            ...s,
+            rsvpCount: s.rsvpCount || 0,
+          }));
+        }
       } catch (err) {
         console.error('Node backend fetch failed for sessions:', err);
       }
     }
 
     try {
-      const { data, error } = await supabase.from('sessions').select('*').order('created_at', { ascending: true });
+      let query = supabase.from('sessions').select('*').order('created_at', { ascending: true });
+      if (track && track !== 'All') {
+        query = query.eq('track', track);
+      }
+      const { data, error } = await query;
       if (!error && data) {
         return data.map((s) => ({
           id: s.id,
@@ -53,6 +65,7 @@ export const ApiService = {
           room: s.room,
           time: s.time,
           description: s.description || '',
+          rsvpCount: 0,
         })) as Session[];
       }
     } catch (err) {
@@ -485,28 +498,71 @@ export const ApiService = {
     }
   },
 
-  // Toggle Save / Bookmark Conference Session
-  async toggleSaveSession(email: string, sessionId: string): Promise<{ isSaved: boolean; savedSessionIds: string[] }> {
-    if (!email || !sessionId) return { isSaved: false, savedSessionIds: [] };
+  // Toggle Save / RSVP Conference Session
+  async toggleSaveSession(email: string, sessionId: string, status?: string): Promise<{ isSaved: boolean; isRsvpd: boolean; savedSessionIds: string[]; rsvpCount?: number }> {
+    if (!email || !sessionId) return { isSaved: false, isRsvpd: false, savedSessionIds: [] };
     const cleanEmail = email.trim().toLowerCase();
 
     if (USE_NODE_BACKEND) {
       try {
-        const res = await fetch(`${NODE_API_BASE_URL}/sessions/saved`, {
+        const res = await fetch(`${NODE_API_BASE_URL}/sessions/rsvp`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: cleanEmail, sessionId }),
+          body: JSON.stringify({ email: cleanEmail, sessionId, status }),
         });
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data.savedSessionIds)) {
             localStorage.setItem(`devfest_saved_sessions_${cleanEmail}`, JSON.stringify(data.savedSessionIds));
-            return data;
+            return {
+              isSaved: data.isSaved,
+              isRsvpd: data.isRsvpd ?? data.isSaved,
+              savedSessionIds: data.savedSessionIds,
+              rsvpCount: data.rsvpCount,
+            };
           }
         }
       } catch (err) {
         console.warn('Failed to toggle saved session on Node backend:', err);
       }
+    }
+
+    // Direct database fallback
+    try {
+      const { data: existing } = await supabase
+        .from('user_saved_sessions')
+        .select('id')
+        .eq('user_email', cleanEmail)
+        .eq('session_id', sessionId)
+        .limit(1);
+
+      let isSaved = false;
+      if (existing && existing.length > 0) {
+        await supabase
+          .from('user_saved_sessions')
+          .delete()
+          .eq('user_email', cleanEmail)
+          .eq('session_id', sessionId);
+        isSaved = false;
+      } else {
+        await supabase
+          .from('user_saved_sessions')
+          .insert({ user_email: cleanEmail, session_id: sessionId, status: 'attending' });
+        isSaved = true;
+      }
+
+      const { data: allSaved } = await supabase
+        .from('user_saved_sessions')
+        .select('session_id')
+        .eq('user_email', cleanEmail)
+        .neq('status', 'not_attending');
+
+      const savedIds = allSaved ? allSaved.map((r) => r.session_id) : [];
+      localStorage.setItem(`devfest_saved_sessions_${cleanEmail}`, JSON.stringify(savedIds));
+
+      return { isSaved, isRsvpd: isSaved, savedSessionIds: savedIds };
+    } catch (dbErr) {
+      console.warn('Database RSVP toggle failed:', dbErr);
     }
 
     // LocalStorage fallback
@@ -515,7 +571,25 @@ export const ApiService = {
     const updated = alreadySaved ? current.filter((id) => id !== sessionId) : [...current, sessionId];
     localStorage.setItem(`devfest_saved_sessions_${cleanEmail}`, JSON.stringify(updated));
 
-    return { isSaved: !alreadySaved, savedSessionIds: updated };
+    return { isSaved: !alreadySaved, isRsvpd: !alreadySaved, savedSessionIds: updated };
+  },
+
+  // RSVP to a conference session (Semantic alias to toggleSaveSession)
+  async rsvpSession(email: string, sessionId: string, status: 'attending' | 'not_attending' = 'attending') {
+    return this.toggleSaveSession(email, sessionId, status);
+  },
+
+  // Get Attendees for a specific session
+  async getSessionAttendees(sessionId: string): Promise<{ sessionId: string; attendees: any[]; totalAttendees: number }> {
+    if (USE_NODE_BACKEND) {
+      try {
+        const res = await fetch(`${NODE_API_BASE_URL}/sessions/${sessionId}/attendees`);
+        if (res.ok) return await res.json();
+      } catch (err) {
+        console.warn('Failed to fetch session attendees from Node backend:', err);
+      }
+    }
+    return { sessionId, attendees: [], totalAttendees: 0 };
   },
 
   // Submit Stamp Claim
@@ -764,5 +838,173 @@ export const ApiService = {
       success: false,
       message: 'Unable to process blind box draw. Please try again later.',
     };
+  },
+
+  // ===========================================================================
+  // NOTIFICATIONS SYSTEM
+  // ===========================================================================
+
+  // Fetch all notifications with user read status and unread count
+  async getNotifications(email?: string): Promise<{ notifications: AppNotification[]; unreadCount: number }> {
+    const cleanEmail = email?.trim().toLowerCase();
+    const emailParam = cleanEmail ? `?email=${encodeURIComponent(cleanEmail)}` : '';
+
+    if (USE_NODE_BACKEND) {
+      try {
+        const res = await fetch(`${NODE_API_BASE_URL}/notifications${emailParam}`);
+        if (res.ok) return await res.json();
+      } catch (err) {
+        console.warn('Failed to fetch notifications from Node backend:', err);
+      }
+    }
+
+    // Direct database fallback
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        let readSet = new Set<string>();
+
+        if (cleanEmail) {
+          const { data: reads } = await supabase
+            .from('user_notification_reads')
+            .select('notification_id')
+            .eq('user_email', cleanEmail);
+
+          if (reads) {
+            reads.forEach((r: any) => readSet.add(r.notification_id));
+          }
+        }
+
+        const formatted: AppNotification[] = data.map((n: any) => ({
+          id: n.id,
+          title: n.title,
+          message: n.message,
+          type: n.type || 'organizer_announcement',
+          targetTrack: n.target_track || 'All',
+          scheduledAt: n.scheduled_at || n.created_at,
+          createdAt: n.created_at,
+          isRead: cleanEmail ? readSet.has(n.id) : false,
+        }));
+
+        const unreadCount = cleanEmail ? formatted.filter((n) => !n.isRead).length : 0;
+        return { notifications: formatted, unreadCount };
+      }
+    } catch (err) {
+      console.error('Database query failed for notifications:', err);
+    }
+
+    return { notifications: [], unreadCount: 0 };
+  },
+
+  // Mark single notification as read
+  async markNotificationRead(email: string, notificationId: string): Promise<boolean> {
+    if (!email || !notificationId) return false;
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (USE_NODE_BACKEND) {
+      try {
+        const res = await fetch(`${NODE_API_BASE_URL}/notifications/mark-read`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: cleanEmail, notificationId }),
+        });
+        if (res.ok) return true;
+      } catch (err) {
+        console.warn('Failed to mark notification read via Node backend:', err);
+      }
+    }
+
+    try {
+      await supabase
+        .from('user_notification_reads')
+        .upsert({
+          user_email: cleanEmail,
+          notification_id: notificationId,
+          read_at: new Date().toISOString(),
+        }, { onConflict: 'user_email,notification_id' });
+      return true;
+    } catch (err) {
+      console.warn('Database mark read failed:', err);
+    }
+    return false;
+  },
+
+  // Mark all notifications as read for user
+  async markAllNotificationsRead(email: string): Promise<boolean> {
+    if (!email) return false;
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (USE_NODE_BACKEND) {
+      try {
+        const res = await fetch(`${NODE_API_BASE_URL}/notifications/mark-read`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: cleanEmail, markAll: true }),
+        });
+        if (res.ok) return true;
+      } catch (err) {
+        console.warn('Failed to mark all notifications read via Node backend:', err);
+      }
+    }
+
+    try {
+      const { data: allNotifs } = await supabase.from('notifications').select('id');
+      if (allNotifs && allNotifs.length > 0) {
+        const rows = allNotifs.map((n: any) => ({
+          user_email: cleanEmail,
+          notification_id: n.id,
+          read_at: new Date().toISOString(),
+        }));
+        await supabase
+          .from('user_notification_reads')
+          .upsert(rows, { onConflict: 'user_email,notification_id' });
+        return true;
+      }
+    } catch (err) {
+      console.warn('Database mark all read failed:', err);
+    }
+    return false;
+  },
+
+  // Broadcast announcement / notification
+  async broadcastNotification(payload: { title: string; message: string; type?: string; targetTrack?: string }): Promise<AppNotification | null> {
+    if (USE_NODE_BACKEND) {
+      try {
+        const res = await fetch(`${NODE_API_BASE_URL}/notifications`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          return data.notification;
+        }
+      } catch (err) {
+        console.warn('Failed to broadcast notification via Node backend:', err);
+      }
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .insert({
+          title: payload.title,
+          message: payload.message,
+          type: payload.type || 'organizer_announcement',
+          target_track: payload.targetTrack || 'All',
+        })
+        .select();
+
+      if (!error && data) {
+        return data[0] as AppNotification;
+      }
+    } catch (err) {
+      console.error('Database notification insert failed:', err);
+    }
+    return null;
   },
 };

@@ -6,6 +6,7 @@ import { sessionsRouter } from './routes/sessions.js';
 import { boothsRouter } from './routes/booths.js';
 import { gachaRouter } from './routes/gacha.js';
 import { connectionsRouter } from './routes/connections.js';
+import { notificationsRouter } from './routes/notifications.js';
 
 dotenv.config();
 
@@ -30,6 +31,7 @@ app.use('/api/sessions', sessionsRouter);
 app.use('/api/booths', boothsRouter);
 app.use('/api/gacha', gachaRouter);
 app.use('/api/connections', connectionsRouter);
+app.use('/api/notifications', notificationsRouter);
 
 app.listen(PORT, () => {
   console.log(`🚀 DevFest KL 2026 Node Server running on http://localhost:${PORT}`);

@@ -6,10 +6,10 @@ import gdgBwSvg from '../../assets/gdg-bw.svg';
 import { CloseIcon } from '../common/Icons';
 import { getAvatarUrl } from '../../lib/avatar';
 import GdgKlLogo from '../common/GdgKlLogo';
-import type { Booth, FAQItem, Session } from '../../lib/types';
+import type { Booth, FAQItem, Session, AppNotification } from '../../lib/types';
 
 interface InfoModalsProps {
-  activeModal: 'rewards' | 'faq' | 'venue_map' | 'about_gdg' | 'friends' | 'session' | 'profile' | null;
+  activeModal: 'rewards' | 'faq' | 'venue_map' | 'about_gdg' | 'friends' | 'session' | 'profile' | 'notifications' | null;
   booths: Booth[];
   faqs: FAQItem[];
   claimedStamps: string[];
@@ -31,6 +31,9 @@ interface InfoModalsProps {
   onToggleSaveSession?: (sessionId: string) => void;
   onSimulateAlert?: (session: Session) => void;
   onLogout?: () => void;
+  notifications?: AppNotification[];
+  onMarkNotificationRead?: (id: string) => void;
+  onMarkAllNotificationsRead?: () => void;
 }
 
 export const InfoModals: React.FC<InfoModalsProps> = ({
@@ -48,6 +51,9 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
   onToggleSaveSession,
   onSimulateAlert,
   onLogout,
+  notifications = [],
+  onMarkNotificationRead,
+  onMarkAllNotificationsRead,
 }) => {
   if (!activeModal) return null;
 
@@ -63,6 +69,7 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
             {activeModal === 'friends' && 'NFC Bump & Friends'}
             {activeModal === 'session' && 'Session Details'}
             {activeModal === 'profile' && 'Attendee Profile'}
+            {activeModal === 'notifications' && 'Conference Notifications'}
           </h3>
           <button
             onClick={onClose}
@@ -235,7 +242,13 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
                 <p className="text-slate-400 text-[11px]">{activeSession.speaker.role}</p>
               </div>
             </div>
-            <p className="font-bold text-blue-400 text-xs">{activeSession.time} • {activeSession.room}</p>
+            <div className="flex items-center justify-between">
+              <p className="font-bold text-blue-400 text-xs">{activeSession.time} • {activeSession.room}</p>
+              <span className="px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20 text-[10px] font-mono font-bold flex items-center gap-1">
+                <span>🔥</span>
+                <span>{activeSession.rsvpCount ?? 0} RSVP'd</span>
+              </span>
+            </div>
             <p className="text-slate-300 leading-relaxed font-sans">{activeSession.description}</p>
             
             <div className="pt-3 border-t border-slate-800 space-y-2.5">
@@ -251,7 +264,7 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
                   <svg className="w-4 h-4 shrink-0" fill={savedSessionIds.includes(activeSession.id) ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                   </svg>
-                  <span>{savedSessionIds.includes(activeSession.id) ? 'Saved' : 'Save to Schedule'}</span>
+                  <span>{savedSessionIds.includes(activeSession.id) ? 'Saved (RSVP Confirmed)' : 'RSVP / Save to Schedule'}</span>
                 </button>
 
                 {savedSessionIds.includes(activeSession.id) && (
@@ -271,6 +284,81 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
                 </p>
               )}
             </div>
+          </div>
+        )}
+
+        {/* NOTIFICATIONS DIALOG */}
+        {activeModal === 'notifications' && (
+          <div className="space-y-3 text-xs">
+            <div className="flex items-center justify-between pb-1 border-b border-slate-800">
+              <p className="text-[11px] text-slate-400 font-mono">
+                {notifications.filter((n) => !n.isRead).length} unread updates
+              </p>
+              {notifications.some((n) => !n.isRead) && (
+                <button
+                  onClick={() => onMarkAllNotificationsRead?.()}
+                  className="text-[11px] text-emerald-400 hover:text-emerald-300 font-bold transition-colors cursor-pointer"
+                >
+                  Mark all read
+                </button>
+              )}
+            </div>
+
+            {notifications.length === 0 ? (
+              <div className="py-8 text-center text-slate-400 space-y-2">
+                <span className="text-3xl block">🔔</span>
+                <p className="text-xs font-semibold text-slate-300">No notifications yet</p>
+                <p className="text-[10px] text-slate-500">You're all caught up with DevFest announcements!</p>
+              </div>
+            ) : (
+              <div className="space-y-2.5 max-h-[55vh] overflow-y-auto pr-1">
+                {notifications.map((notif) => {
+                  const isUnread = !notif.isRead;
+                  const isSession = notif.type === 'session_alert';
+                  const isLucky = notif.type === 'lucky_draw';
+
+                  return (
+                    <div
+                      key={notif.id}
+                      onClick={() => isUnread && onMarkNotificationRead?.(notif.id)}
+                      className={`p-3 rounded-2xl border transition-all cursor-pointer relative ${
+                        isUnread
+                          ? 'bg-slate-900 border-blue-500/40 shadow-sm hover:border-blue-400'
+                          : 'bg-slate-900/50 border-slate-800 text-slate-400'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                            isSession
+                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                              : isLucky
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                              : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                          }`}
+                        >
+                          {isSession ? 'Session Alert' : isLucky ? 'Lucky Draw' : 'Announcement'}
+                        </span>
+                        {isUnread && (
+                          <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0 mt-1" title="Unread" />
+                        )}
+                      </div>
+                      <h4 className={`text-xs font-bold leading-snug ${isUnread ? 'text-white' : 'text-slate-300'}`}>
+                        {notif.title}
+                      </h4>
+                      <p className="text-[11px] text-slate-300 mt-1 leading-relaxed font-sans">
+                        {notif.message}
+                      </p>
+                      {notif.targetTrack && notif.targetTrack !== 'All' && (
+                        <span className="inline-block mt-1.5 text-[9px] text-slate-400 font-mono">
+                          Track: {notif.targetTrack}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 

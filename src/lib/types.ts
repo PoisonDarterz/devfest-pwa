@@ -48,14 +48,26 @@ export interface Session {
     role: string;
     avatar: string;
   };
-  track: 'AI / ML' | 'Cloud & DevOps' | 'Mobile & Flutter' | 'Web & Chrome' | 'Keynote';
+  track: 'AI / ML' | 'Cloud & DevOps' | 'Mobile & Flutter' | 'Web & Chrome' | 'Keynote' | string;
   room: string;
   time: string;
   description: string;
+  rsvpCount?: number;
+}
+
+export interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'session_alert' | 'lucky_draw' | 'organizer_announcement' | string;
+  targetTrack?: string;
+  scheduledAt?: string;
+  createdAt?: string;
+  isRead?: boolean;
 }
 
 export interface FAQItem {
   question: string;
   answer: string;
-  category: 'Venue & Access' | 'Peatix & Tickets' | 'WiFi & Apps' | 'Booths & Prizes';
+  category: 'Venue & Access' | 'Peatix & Tickets' | 'WiFi & Apps' | 'Booths & Prizes' | string;
 }

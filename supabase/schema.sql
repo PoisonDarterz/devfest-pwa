@@ -97,11 +97,38 @@ CREATE TABLE IF NOT EXISTS public.user_saved_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_email TEXT NOT NULL,
     session_id TEXT NOT NULL,
+    status TEXT DEFAULT 'attending',
     created_at TIMESTAMPTZ DEFAULT now(),
     UNIQUE(user_email, session_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_saved_sessions_email ON public.user_saved_sessions(LOWER(user_email));
+
+-- -----------------------------------------------------------------------------
+-- 11. NOTIFICATIONS TABLE (Push Alerts & Lucky Draw Broadcasts)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    type TEXT DEFAULT 'session_alert', -- 'session_alert', 'lucky_draw', 'organizer_announcement'
+    target_track TEXT,
+    scheduled_at TIMESTAMPTZ DEFAULT now(),
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- -----------------------------------------------------------------------------
+-- 11.1 USER NOTIFICATION READS TABLE (Tracks read state per user)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.user_notification_reads (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_email TEXT NOT NULL,
+    notification_id UUID NOT NULL REFERENCES public.notifications(id) ON DELETE CASCADE,
+    read_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(user_email, notification_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_notification_reads ON public.user_notification_reads(LOWER(user_email));
 
 -- -----------------------------------------------------------------------------
 -- 5. BOOTHS TABLE (Sponsor & Partner Exhibition Booths)
@@ -274,57 +301,6 @@ CREATE TABLE IF NOT EXISTS public.faqs (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- -----------------------------------------------------------------------------
--- 11. NOTIFICATIONS TABLE (Push Alerts & Lucky Draw Broadcasts)
--- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.notifications (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    title TEXT NOT NULL,
-    message TEXT NOT NULL,
-    type TEXT DEFAULT 'session_alert', -- 'session_alert', 'lucky_draw', 'organizer_announcement'
-    target_track TEXT,
-    scheduled_at TIMESTAMPTZ DEFAULT now(),
-    created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- =============================================================================
--- SAMPLE SEED DATA
--- =============================================================================
-
-INSERT INTO public.ticketing_whitelists (email, ticket_type, external_ref_id, notes) VALUES
-('zixu.cheah@devfest.kl', 'Standard Attendee', 'T2U-100892', 'Ticket2u Registration'),
-('jonas.chuan@devfest.kl', 'Standard Attendee', 'T2U-100893', 'Ticket2u Registration'),
-('speaker@devfest.kl', 'Speaker', 'T2U-VIP001', 'Keynote Speaker')
-ON CONFLICT (email) DO NOTHING;
-
-INSERT INTO public.booths (name, category, description, booth_code, logo_text, location) VALUES
-('42KL', 'Community', 'Peer-to-peer coding school in Sunway Education Group.', 'BOOTH-42KL', '42 KL | Sunway Education Group', 'Hall A - #01'),
-('Google Cloud Malaysia', 'Platinum Sponsor', 'Enterprise cloud infrastructure, Kubernetes & BigQuery solutions.', 'BOOTH-GCP', 'Google Cloud', 'Hall A - #02'),
-('Flutter Community', 'Community', 'Cross-platform app development community in Malaysia.', 'BOOTH-FLUTTER', 'Flutter MY', 'Hall A - #04'),
-('TensorFlow & Gemini AI', 'Gold Sponsor', 'Machine learning, model fine-tuning and Gemini API workshops.', 'BOOTH-GEMINI', 'TensorFlow', 'Hall B - #10')
-ON CONFLICT (booth_code) DO NOTHING;
-
-INSERT INTO public.sessions (title, speaker_name, speaker_role, speaker_avatar, track, room, time, description) VALUES
-('Develop multi agent system with Agent Development Kit', 'Liam & Megan Kasselberg', 'Senior UX Writer & GDE', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80', 'AI / ML', 'Main Auditorium', '10:30 AM', 'Liam speaks with Megan Kasselberg, whose work as a senior UX writer touches billions through Material Design.'),
-('From Docker to Docker Compose Workflows', 'Sarah Lim', 'DevOps Lead @ TechScale', 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=150&q=80', 'Cloud & DevOps', 'Hall A (Tech Stage)', '11:30 AM', 'Learn best practices for multi-container orchestration, development setup, and production deployment.'),
-('Getting Started with MCP, ADK and A2A Architectures', 'Jonas Tan', 'Staff AI Engineer', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80', 'AI / ML', 'Hall B (Web Stage)', '02:00 PM', 'Explore Model Context Protocol (MCP), Agent Development Kit, and Agent-to-Agent protocol paradigms.')
-ON CONFLICT DO NOTHING;
-
-INSERT INTO public.faqs (question, answer, category) VALUES
-('How do I register for DevFest KL 2026 PWA?', 'When organizers send out the PWA link, sign in with the email used to buy your Ticket2u ticket. Your ticket will be verified automatically.', 'Registration & Tickets'),
-('Where is Google DevFest KL 2026 located?', 'KL Convention Centre (KLCC), Level 3 Grand Ballroom. Accessible via LRT Kelana Jaya Line & MRT Putrajaya Line.', 'Venue & Access'),
-('How does the NFC Phone Bump feature work?', 'On Android Chrome, tap "Friends" and hold devices back-to-back to swap contact profiles automatically!', 'WiFi & Apps')
-ON CONFLICT DO NOTHING;
-
--- Enable Row Level Security (RLS) Policies for Public Read
-ALTER TABLE public.booths ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sessions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.faqs ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Allow public read access to booths" ON public.booths FOR SELECT USING (true);
-CREATE POLICY "Allow public read access to sessions" ON public.sessions FOR SELECT USING (true);
-CREATE POLICY "Allow public read access to faqs" ON public.faqs FOR SELECT USING (true);
-
 -- Enable RLS and policies for profiles & saved sessions
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow public select to profiles" ON public.profiles FOR SELECT USING (true);
@@ -333,4 +309,12 @@ CREATE POLICY "Allow public update to profiles" ON public.profiles FOR UPDATE US
 
 ALTER TABLE public.user_saved_sessions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow public read and write access to user_saved_sessions" ON public.user_saved_sessions FOR ALL USING (true) WITH CHECK (true);
+
+-- Enable RLS and policies for notifications & user reads
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public read access to notifications" ON public.notifications FOR SELECT USING (true);
+CREATE POLICY "Allow insert access to notifications" ON public.notifications FOR INSERT WITH CHECK (true);
+
+ALTER TABLE public.user_notification_reads ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public read and write access to user_notification_reads" ON public.user_notification_reads FOR ALL USING (true) WITH CHECK (true);
 
