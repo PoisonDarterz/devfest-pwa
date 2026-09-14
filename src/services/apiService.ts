@@ -451,7 +451,118 @@ export const ApiService = {
     return {
       success: false,
       profile: null as any,
-      message: 'Failed to save profile to database.',
+      message: 'Failed to save profile.',
+    };
+  },
+
+  // Update User Profile (Full Name, Role, Bio, GitHub URL, LinkedIn URL)
+  async updateUserProfile(profile: {
+    name: string;
+    email: string;
+    role?: string;
+    bio?: string;
+    githubUrl?: string;
+    linkedinUrl?: string;
+  }): Promise<{ success: boolean; profile: UserProfile; message: string }> {
+    const cleanEmail = profile.email.trim().toLowerCase();
+    const qrPayload = `DEVFEST-KL-2026-${profile.name.toUpperCase().replace(/\s+/g, '-')}`;
+
+    if (USE_NODE_BACKEND) {
+      try {
+        const res = await fetch(`${NODE_API_BASE_URL}/auth/profile`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(localStorage.getItem('devfest_auth_token')
+              ? { Authorization: `Bearer ${localStorage.getItem('devfest_auth_token')}` }
+              : {}),
+          },
+          body: JSON.stringify({
+            email: cleanEmail,
+            name: profile.name,
+            role: profile.role,
+            bio: profile.bio,
+            githubUrl: profile.githubUrl,
+            linkedinUrl: profile.linkedinUrl,
+          }),
+        });
+
+        const json = await res.json();
+        if (res.ok && json.success && json.user) {
+          if (json.token) {
+            localStorage.setItem('devfest_auth_token', json.token);
+          }
+          localStorage.setItem('devfest_auth_user', JSON.stringify(json.user));
+          return { success: true, profile: json.user, message: json.message || 'Profile updated successfully!' };
+        } else {
+          return {
+            success: false,
+            profile: null as any,
+            message: json.message || 'Failed to update profile on server.',
+          };
+        }
+      } catch (err: any) {
+        console.warn('Node backend update profile failed, falling back to direct database:', err);
+      }
+    }
+
+    // Direct Supabase DB update fallback
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: profile.name.trim(),
+          company_role: profile.role || 'Participant',
+          bio: profile.bio || '',
+          github_url: profile.githubUrl || '',
+          linkedin_url: profile.linkedinUrl || '',
+          qr_payload: qrPayload,
+        })
+        .eq('email', cleanEmail)
+        .select()
+        .limit(1);
+
+      if (!error && data && data.length > 0) {
+        const p = data[0];
+        const updatedProfile: UserProfile = {
+          id: p.id,
+          name: p.full_name,
+          role: p.company_role || 'Participant',
+          email: p.email,
+          avatar: '',
+          bio: p.bio || '',
+          githubUrl: p.github_url || '',
+          linkedinUrl: p.linkedin_url || '',
+          qrPayload: p.qr_payload || qrPayload,
+        };
+        localStorage.setItem('devfest_auth_user', JSON.stringify(updatedProfile));
+        return {
+          success: true,
+          profile: updatedProfile,
+          message: 'Profile updated successfully in database!',
+        };
+      }
+
+      if (error) {
+        return {
+          success: false,
+          profile: null as any,
+          message: `Database update failed: ${error.message}`,
+        };
+      }
+    } catch (err: any) {
+      console.error('Database update failed for profile:', err);
+      return {
+        success: false,
+        profile: null as any,
+        message: err?.message || 'Database connection error.',
+      };
+    }
+
+    return {
+      success: false,
+      profile: null as any,
+      message: 'Unable to update profile.',
     };
   },
 

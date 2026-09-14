@@ -464,3 +464,98 @@ authRouter.get('/profile/:id', async (req: Request, res: Response): Promise<void
 
   res.status(404).json({ message: 'Profile not found.' });
 });
+
+// =============================================================================
+// 7. Update User Profile in Database (Full Name, Role, Bio, GitHub URL, LinkedIn URL)
+// =============================================================================
+const handleUpdateProfile = async (req: Request, res: Response): Promise<void> => {
+  const { email, name, role, bio, githubUrl, linkedinUrl } = req.body;
+
+  if (!email || typeof email !== 'string') {
+    res.status(400).json({ success: false, message: 'Valid email is required to update profile.' });
+    return;
+  }
+  if (!name || typeof name !== 'string' || !name.trim()) {
+    res.status(400).json({ success: false, message: 'Full name is required.' });
+    return;
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+
+  try {
+    // 1. Check if profile exists in DB
+    const { data: existingProfiles, error: fetchErr } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('email', cleanEmail)
+      .limit(1);
+
+    if (fetchErr) {
+      res.status(500).json({ success: false, message: `Database error: ${fetchErr.message}` });
+      return;
+    }
+
+    if (!existingProfiles || existingProfiles.length === 0) {
+      res.status(404).json({ success: false, message: 'Profile not found in database. Please register first.' });
+      return;
+    }
+
+    const currentProfile = existingProfiles[0];
+    const newQrPayload = `DEVFEST-KL-2026-${name.trim().toUpperCase().replace(/\s+/g, '-')}`;
+
+    // 2. Perform UPDATE on the profile row
+    const { data: updatedData, error: updateErr } = await supabaseAdmin
+      .from('profiles')
+      .update({
+        full_name: name.trim(),
+        company_role: role?.trim() || 'Participant',
+        bio: bio !== undefined ? bio.trim() : (currentProfile.bio || ''),
+        github_url: githubUrl !== undefined ? githubUrl.trim() : (currentProfile.github_url || ''),
+        linkedin_url: linkedinUrl !== undefined ? linkedinUrl.trim() : (currentProfile.linkedin_url || ''),
+        qr_payload: newQrPayload,
+      })
+      .eq('email', cleanEmail)
+      .select()
+      .limit(1);
+
+    if (updateErr) {
+      console.error('Error updating profile in Supabase:', updateErr);
+      res.status(500).json({ success: false, message: `Failed to update profile: ${updateErr.message}` });
+      return;
+    }
+
+    if (!updatedData || updatedData.length === 0) {
+      res.status(500).json({ success: false, message: 'Failed to update profile: No record updated.' });
+      return;
+    }
+
+    const p = updatedData[0];
+    const updatedUser = {
+      id: p.id,
+      name: p.full_name,
+      role: p.company_role || 'Participant',
+      email: p.email,
+      avatar: '',
+      bio: p.bio || '',
+      githubUrl: p.github_url || '',
+      linkedinUrl: p.linkedin_url || '',
+      qrPayload: p.qr_payload || newQrPayload,
+    };
+
+    const token = generateToken(updatedUser);
+
+    res.json({
+      success: true,
+      token,
+      user: updatedUser,
+      message: 'Profile updated successfully in database!',
+    });
+  } catch (err: any) {
+    console.error('Server error updating profile:', err);
+    res.status(500).json({ success: false, message: err?.message || 'Server error updating profile.' });
+  }
+};
+
+authRouter.put('/profile', handleUpdateProfile);
+authRouter.post('/profile', handleUpdateProfile);
+

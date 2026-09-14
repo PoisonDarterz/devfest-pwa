@@ -171,6 +171,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       const result = await ApiService.loginUser(email.trim(), password.trim());
       if (result.success && result.user) {
         setIsLoading(false);
+        try {
+          localStorage.setItem('devfest_login_provider', 'email');
+        } catch {}
         onLoginSuccess(result.user);
         return;
       } else {
@@ -289,6 +292,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
       if (result.success && result.profile) {
         setIsLoading(false);
+        try {
+          localStorage.setItem('devfest_login_provider', googleUserId ? 'google' : 'email');
+        } catch {}
         onLoginSuccess(result.profile);
       } else {
         setIsLoading(false);

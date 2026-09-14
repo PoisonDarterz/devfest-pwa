@@ -34,6 +34,7 @@ interface InfoModalsProps {
   notifications?: AppNotification[];
   onMarkNotificationRead?: (id: string) => void;
   onMarkAllNotificationsRead?: () => void;
+  onOpenProfileSettings?: () => void;
 }
 
 export const InfoModals: React.FC<InfoModalsProps> = ({
@@ -54,6 +55,7 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
   notifications = [],
   onMarkNotificationRead,
   onMarkAllNotificationsRead,
+  onOpenProfileSettings,
 }) => {
   if (!activeModal) return null;
 
@@ -413,6 +415,23 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
             <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-emerald-400 font-semibold">
               ✓ Peatix Ticket Linked
             </div>
+
+            {onOpenProfileSettings && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenProfileSettings();
+                }}
+                className="w-full py-2.5 rounded-xl bg-blue-500/20 text-blue-300 border border-blue-500/30 hover:bg-blue-500/30 font-bold transition-all cursor-pointer text-xs flex items-center justify-center gap-1.5"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                <span>Edit Profile Settings</span>
+              </button>
+            )}
+
             {onLogout && (
               <button
                 type="button"

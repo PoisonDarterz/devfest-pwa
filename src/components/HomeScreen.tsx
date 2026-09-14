@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '../lib/supabase';
 import { checkNFCSupport } from '../lib/nfc';
 import { getAvatarUrl } from '../lib/avatar';
 import { ApiService } from '../services/apiService';
@@ -22,6 +23,7 @@ import FriendDiscoveryModule from './modules/FriendDiscoveryModule';
 import BoothDiscoveryModule from './modules/BoothDiscoveryModule';
 import RewardsModule from './modules/RewardsModule';
 import FaqModule from './modules/FaqModule';
+import ProfileSettingsModule from './modules/ProfileSettingsModule';
 import type { RewardSelection } from './modules/RewardsModule';
 import RewardRedeemModal from './modals/RewardRedeemModal';
 import InfoModals from './modals/InfoModals';
@@ -41,7 +43,7 @@ interface HomeScreenProps {
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, initialUser }) => {
   // Drawer View State
-  const [sheetState, setSheetState] = useState<'home' | 'scan_qr_1' | 'scan_qr_2' | 'participant_profile' | 'booth_profile' | 'rewards' | 'faq'>('home');
+  const [sheetState, setSheetState] = useState<'home' | 'scan_qr_1' | 'scan_qr_2' | 'participant_profile' | 'booth_profile' | 'rewards' | 'faq' | 'profile_settings'>('home');
   const [activeModal, setActiveModal] = useState<'rewards' | 'faq' | 'venue_map' | 'about_gdg' | 'friends' | 'session' | 'profile' | 'notifications' | null>(null);
 
   // Data States
@@ -78,7 +80,40 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, initialUser })
   const [scanResult, setScanResult] = useState<string | null>(null);
   const [rewardRedeemState, setRewardRedeemState] = useState<{ [key: string]: boolean }>({});
   const [selectedReward, setSelectedReward] = useState<RewardSelection | null>(null);
+  const [loginProvider, setLoginProvider] = useState<'google' | 'email'>(() => {
+    try {
+      const stored = localStorage.getItem('devfest_login_provider');
+      if (stored === 'google' || stored === 'email') return stored;
+    } catch {}
+    return 'email';
+  });
 
+  // Automatically detect auth provider (Google OAuth session vs normal email/password)
+  useEffect(() => {
+    async function detectProvider() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const isGoogle =
+          session?.user?.app_metadata?.provider === 'google' ||
+          session?.user?.identities?.some((i: any) => i.provider === 'google');
+        if (isGoogle) {
+          setLoginProvider('google');
+          localStorage.setItem('devfest_login_provider', 'google');
+          return;
+        }
+      } catch (err) {
+        console.warn('Could not check Supabase session provider:', err);
+      }
+
+      const stored = localStorage.getItem('devfest_login_provider');
+      if (stored === 'google' || stored === 'email') {
+        setLoginProvider(stored);
+      } else {
+        setLoginProvider('email');
+      }
+    }
+    detectProvider();
+  }, [userProfile.email]);
 
   // Notifications & Bookmarking State
   const [savedSessionIds, setSavedSessionIds] = useState<string[]>(() => {
@@ -192,6 +227,33 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, initialUser })
   };
 
   const unreadNotifCount = notifications.filter(n => !n.isRead).length;
+
+  // Handle user profile updates from ProfileSettingsModule
+  const handleUpdateProfile = async (updated: {
+    name: string;
+    role: string;
+    bio: string;
+    githubUrl: string;
+    linkedinUrl: string;
+  }) => {
+    const res = await ApiService.updateUserProfile({
+      name: updated.name,
+      email: userProfile.email,
+      role: updated.role,
+      bio: updated.bio,
+      githubUrl: updated.githubUrl,
+      linkedinUrl: updated.linkedinUrl,
+    });
+
+    if (!res.success || !res.profile) {
+      throw new Error(res.message || 'Failed to update profile in database.');
+    }
+
+    setUserProfile(res.profile);
+    try {
+      localStorage.setItem('devfest_auth_user', JSON.stringify(res.profile));
+    } catch {}
+  };
 
   // Simulate notification trigger
   const handleSimulateAlert = (session: Session) => {
@@ -741,6 +803,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, initialUser })
                 onBackToHome={() => setSheetState('home')}
               />
             )}
+
+            {/* STATE 8: PROFILE SETTINGS MODULE */}
+            {sheetState === 'profile_settings' && (
+              <ProfileSettingsModule
+                userProfile={userProfile}
+                provider={loginProvider}
+                onSaveProfile={handleUpdateProfile}
+                onBackToHome={() => setSheetState('home')}
+              />
+            )}
           </AnimatePresence>
         </motion.div>
 
@@ -763,6 +835,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, initialUser })
           notifications={notifications}
           onMarkNotificationRead={handleMarkNotificationRead}
           onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
+          onOpenProfileSettings={() => setSheetState('profile_settings')}
         />
 
         {/* INDIVIDUAL REWARD REDEEM POPUP MODAL */}

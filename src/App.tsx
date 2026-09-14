@@ -53,6 +53,7 @@ export const App: React.FC = () => {
       await supabase.auth.signOut();
       localStorage.removeItem('devfest_auth_user');
       localStorage.removeItem('devfest_auth_token');
+      localStorage.removeItem('devfest_login_provider');
     } catch (err) {
       console.warn('Failed to clear auth user:', err);
     }
@@ -80,6 +81,7 @@ export const App: React.FC = () => {
 
       if (status.hasProfile && status.profile) {
         // Use back normal email sign in avatar behavior (identicon generated from email/name)
+        localStorage.setItem('devfest_login_provider', 'google');
         handleLoginSuccess({
           ...status.profile,
           avatar: '',
