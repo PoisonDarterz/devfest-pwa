@@ -24,6 +24,7 @@ import BoothDiscoveryModule from './modules/BoothDiscoveryModule';
 import RewardsModule from './modules/RewardsModule';
 import FaqModule from './modules/FaqModule';
 import ProfileSettingsModule from './modules/ProfileSettingsModule';
+import FriendsModule, { type FriendConnection } from './modules/FriendsModule';
 import type { RewardSelection } from './modules/RewardsModule';
 import RewardRedeemModal from './modals/RewardRedeemModal';
 import InfoModals from './modals/InfoModals';
@@ -43,7 +44,8 @@ interface HomeScreenProps {
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, initialUser }) => {
   // Drawer View State
-  const [sheetState, setSheetState] = useState<'home' | 'scan_qr_1' | 'scan_qr_2' | 'participant_profile' | 'booth_profile' | 'rewards' | 'faq' | 'profile_settings'>('home');
+  const [sheetState, setSheetState] = useState<'home' | 'scan_qr_1' | 'scan_qr_2' | 'participant_profile' | 'booth_profile' | 'rewards' | 'faq' | 'profile_settings' | 'friends'>('home');
+  const [selectedFriendDetails, setSelectedFriendDetails] = useState<FriendConnection | null>(null);
   const [activeModal, setActiveModal] = useState<'rewards' | 'faq' | 'venue_map' | 'about_gdg' | 'friends' | 'session' | 'profile' | 'notifications' | null>(null);
 
   // Data States
@@ -407,7 +409,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, initialUser })
       handleClaimStamp('b1');
       setSheetState('booth_profile');
     } else {
-      setSheetState('participant_profile');
+      setSelectedFriendDetails({
+        id: 'scanned-friend',
+        name: discoveredFriend.name,
+        displayName: discoveredFriend.name.split(' ')[0] + ' ' + (discoveredFriend.name.split(' ')[1]?.[0] || '') + '.',
+        role: discoveredFriend.role,
+        bio: discoveredFriend.bio,
+        avatar: discoveredFriend.avatar,
+        initials: 'JC',
+        color: 'bg-[#2D6E66]',
+        githubUrl: discoveredFriend.githubUrl,
+        linkedinUrl: discoveredFriend.linkedinUrl,
+        email: discoveredFriend.email,
+      });
+      setSheetState('friends');
     }
   };
 
@@ -596,7 +611,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, initialUser })
               <div className="w-13 h-13 rounded-full bg-[#2A6E3F]/80 text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform border border-white/10 active:scale-95">
                 <QrScanIcon />
               </div>
-              <span className="text-[11px] font-bold text-slate-900">Scan QR</span>
+              <span className="text-[11px] font-bold text-slate-900">QR Code / NFC</span>
             </button>
 
             <button onClick={() => setSheetState('rewards')} className="flex flex-col items-center gap-1 group cursor-pointer">
@@ -613,7 +628,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, initialUser })
               <span className="text-[11px] font-bold text-slate-900">FAQ & Info</span>
             </button>
 
-            <button onClick={() => setActiveModal('friends')} className="flex flex-col items-center gap-1 group cursor-pointer">
+            <button onClick={() => setSheetState('friends')} className="flex flex-col items-center gap-1 group cursor-pointer">
               <div className="w-13 h-13 rounded-full bg-[#2A6E3F]/80 text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform border border-white/10 active:scale-95">
                 <FriendsNodesIcon />
               </div>
@@ -758,15 +773,33 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, initialUser })
               />
             )}
 
-            {/* STATE 3: CAMERA SCANNER */}
+            {/* STATE 3: CAMERA SCANNER (REVAMPED WITH NFC BUMP PROMPT & VIEWFINDER) */}
             {sheetState === 'scan_qr_2' && (
               <ScannerCameraModule
                 scanResult={scanResult}
                 onScanResult={handleScanResult}
                 onClearScan={() => setScanResult(null)}
                 onBackToBadge={() => setSheetState('scan_qr_1')}
-                onTriggerFriendDemo={() => setSheetState('participant_profile')}
+                onTriggerFriendDemo={() => {
+                  setSelectedFriendDetails({
+                    id: 'f-2',
+                    name: discoveredFriend.name,
+                    displayName: 'Jonas C.',
+                    role: discoveredFriend.role,
+                    bio: discoveredFriend.bio,
+                    initials: 'JC',
+                    color: 'bg-[#2D6E66]',
+                    githubUrl: discoveredFriend.githubUrl,
+                    linkedinUrl: discoveredFriend.linkedinUrl,
+                    email: discoveredFriend.email,
+                  });
+                  setSheetState('friends');
+                }}
                 onTriggerBoothDemo={() => setSheetState('booth_profile')}
+                userName={userProfile.name}
+                userRole={userProfile.role}
+                qrPayload={userProfile.qrPayload}
+                isNfcSupported={nfcStatus.isSupported}
               />
             )}
 
@@ -811,6 +844,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, initialUser })
                 provider={loginProvider}
                 onSaveProfile={handleUpdateProfile}
                 onBackToHome={() => setSheetState('home')}
+              />
+            )}
+
+            {/* STATE 9: FRIENDS MODULE (Connection List & Friend Details) */}
+            {sheetState === 'friends' && (
+              <FriendsModule
+                onBackToHome={() => {
+                  setSelectedFriendDetails(null);
+                  setSheetState('home');
+                }}
+                onOpenQrOrNfc={() => setSheetState('scan_qr_1')}
+                initialSelectedFriend={selectedFriendDetails}
               />
             )}
           </AnimatePresence>
