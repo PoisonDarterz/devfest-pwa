@@ -6,6 +6,7 @@ import gdgBwSvg from '../../assets/gdg-bw.svg';
 import { CloseIcon } from '../common/Icons';
 import { getAvatarUrl } from '../../lib/avatar';
 import GdgKlLogo from '../common/GdgKlLogo';
+import { getNotificationStatus, requestNotificationPermission, sendSystemNotificationDetailed } from '../../lib/notifications';
 import type { Booth, FAQItem, Session, AppNotification } from '../../lib/types';
 
 interface InfoModalsProps {
@@ -57,6 +58,39 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
   onMarkAllNotificationsRead,
   onOpenProfileSettings,
 }) => {
+  const [notifStatus, setNotifStatus] = React.useState(() => getNotificationStatus());
+  const [testNotificationFeedback, setTestNotificationFeedback] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (activeModal === 'notifications') {
+      setNotifStatus(getNotificationStatus());
+    }
+  }, [activeModal]);
+
+  const handleEnableSystemNotifications = async () => {
+    const perm = await requestNotificationPermission();
+    const updated = getNotificationStatus();
+    setNotifStatus(updated);
+    if (perm === 'granted') {
+      const result = await sendSystemNotificationDetailed('DevFest KL 2026', {
+        body: '🎉 System notifications enabled! You will receive timely alerts for bookmarked sessions.',
+        icon: '/pwa-192x192.png',
+      });
+      setTestNotificationFeedback(result.message);
+      setTimeout(() => setTestNotificationFeedback(null), 6000);
+    }
+  };
+
+  const handleSendTestNotification = async () => {
+    setTestNotificationFeedback('Sending notification...');
+    const result = await sendSystemNotificationDetailed('DevFest KL 2026', {
+      body: '🔔 Test Notification: System alerts and session reminders are active on your device!',
+      icon: '/pwa-192x192.png',
+    });
+    setTestNotificationFeedback(result.message);
+    setTimeout(() => setTestNotificationFeedback(null), 7000);
+  };
+
   if (!activeModal) return null;
 
   return (
@@ -303,6 +337,65 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
                 >
                   Mark all read
                 </button>
+              )}
+            </div>
+
+            {/* Device Notifications Status & Test Card */}
+            <div className="p-3 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">🔔</span>
+                  <span className="font-bold text-white text-[11px]">Device Notifications</span>
+                </div>
+                {notifStatus.permission === 'granted' ? (
+                  <span className="text-emerald-400 font-bold text-[10px] bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                    ✓ Active
+                  </span>
+                ) : notifStatus.permission === 'denied' ? (
+                  <span className="text-red-400 font-bold text-[10px] bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20">
+                    Blocked
+                  </span>
+                ) : (
+                  <span className="text-amber-300 font-bold text-[10px] bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                    Not Enabled
+                  </span>
+                )}
+              </div>
+
+              <p className="text-[10.5px] text-slate-400 leading-snug">
+                {notifStatus.platformMessage}
+              </p>
+
+              {testNotificationFeedback && (
+                <div className="p-2 rounded-xl bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[10px] font-bold text-center animate-pulse">
+                  {testNotificationFeedback}
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 pt-0.5">
+                {notifStatus.permission !== 'granted' ? (
+                  <button
+                    type="button"
+                    onClick={handleEnableSystemNotifications}
+                    className="w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all active:scale-98 cursor-pointer shadow-md"
+                  >
+                    Enable Device Notifications
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSendTestNotification}
+                    className="w-full py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-[10.5px] transition-all active:scale-98 cursor-pointer"
+                  >
+                    🔔 Send Test Notification
+                  </button>
+                )}
+              </div>
+
+              {notifStatus.permission === 'granted' && (
+                <p className="text-[9.5px] text-slate-400 border-t border-slate-800/80 pt-2 leading-tight">
+                  💡 <strong>Still not seeing a banner?</strong> Ensure phone OS Settings &gt; Apps &gt; Chrome (or DevFest) &gt; Notifications is turned ON, and Do Not Disturb / Focus mode is off.
+                </p>
               )}
             </div>
 

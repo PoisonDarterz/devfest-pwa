@@ -23,6 +23,8 @@ interface FriendsModuleProps {
   onBackToHome: () => void;
   onOpenQrOrNfc: () => void;
   initialSelectedFriend?: FriendConnection | null;
+  friends?: FriendConnection[];
+  isLoading?: boolean;
 }
 
 // Initial default connections list (matching the 15 connections count from mockup)
@@ -295,11 +297,19 @@ export const FriendsModule: React.FC<FriendsModuleProps> = ({
   onBackToHome,
   onOpenQrOrNfc,
   initialSelectedFriend,
+  friends = DEFAULT_FRIENDS,
+  isLoading = false,
 }) => {
-  const [friends] = useState<FriendConnection[]>(DEFAULT_FRIENDS);
   const [selectedFriend, setSelectedFriend] = useState<FriendConnection | null>(
     initialSelectedFriend || null
   );
+
+  // Sync selected friend if passed from parent (e.g. newly scanned friend)
+  React.useEffect(() => {
+    if (initialSelectedFriend) {
+      setSelectedFriend(initialSelectedFriend);
+    }
+  }, [initialSelectedFriend]);
 
   return (
     <motion.div
@@ -310,22 +320,8 @@ export const FriendsModule: React.FC<FriendsModuleProps> = ({
       transition={{ duration: 0.2 }}
       className="flex flex-col h-full w-full relative text-slate-900 overflow-hidden"
     >
-      {/* Top Header Bar: Back & Close Controls */}
-      <div className="flex items-center justify-between px-2 pt-1 pb-2 shrink-0">
-        <button
-          type="button"
-          onClick={onBackToHome}
-          className="p-1.5 rounded-full bg-slate-800/80 text-slate-300 hover:text-white transition-colors cursor-pointer"
-          title="Back to Home"
-          aria-label="Back to Home"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-
-        <div className="w-12 h-1 bg-neutral-600/70 rounded-full" />
-
+      {/* Top Header Bar: Clean Close Control */}
+      <div className="flex items-center justify-end px-3 pt-1 pb-2 shrink-0">
         <button
           type="button"
           onClick={onBackToHome}
@@ -357,29 +353,61 @@ export const FriendsModule: React.FC<FriendsModuleProps> = ({
             <span>new connections.</span>
           </div>
 
-          {/* 3-Column Friends Grid */}
-          <div className="grid grid-cols-3 gap-y-5 gap-x-3 pt-3">
-            {friends.map((friend) => (
-              <button
-                key={friend.id}
-                type="button"
-                onClick={() => setSelectedFriend(friend)}
-                className="flex flex-col items-center group cursor-pointer active:scale-95 transition-transform text-center"
-              >
-                {/* Circular Avatar / Initials Circle */}
-                <div
-                  className={`w-14 h-14 rounded-full ${friend.color} text-white font-bold text-base flex items-center justify-center shadow-md border-2 border-white/20 group-hover:scale-105 transition-all overflow-hidden`}
-                >
-                  {friend.initials}
-                </div>
+          {/* Loading Indicator */}
+          {isLoading && friends.length === 0 && (
+            <div className="py-12 text-center text-slate-500 font-medium text-xs">
+              Loading your DevFest connections...
+            </div>
+          )}
 
-                {/* Friend Display Name */}
-                <span className="text-[12px] font-medium text-slate-800 tracking-tight mt-1.5 truncate max-w-[85px] leading-tight group-hover:text-slate-950">
-                  {friend.displayName || friend.name}
-                </span>
+          {/* Empty State */}
+          {!isLoading && friends.length === 0 && (
+            <div className="py-8 px-4 text-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-800 mx-auto flex items-center justify-center text-xl shadow-sm">
+                🤝
+              </div>
+              <div className="space-y-1">
+                <p className="font-extrabold text-sm text-slate-900">No connections yet</p>
+                <p className="text-[11.5px] text-slate-600 leading-relaxed max-w-[260px] mx-auto font-sans">
+                  Tap the button below to bump phones with NFC or scan attendee badge QR codes to expand your network!
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onOpenQrOrNfc}
+                className="mt-2 inline-flex items-center gap-2 bg-[#2D6E66] text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md hover:bg-[#255C55] transition-all cursor-pointer"
+              >
+                <QrIcon />
+                <span>Start Connecting</span>
               </button>
-            ))}
-          </div>
+            </div>
+          )}
+
+          {/* 3-Column Friends Grid */}
+          {friends.length > 0 && (
+            <div className="grid grid-cols-3 gap-y-5 gap-x-3 pt-3">
+              {friends.map((friend) => (
+                <button
+                  key={friend.id}
+                  type="button"
+                  onClick={() => setSelectedFriend(friend)}
+                  className="flex flex-col items-center group cursor-pointer active:scale-95 transition-transform text-center"
+                >
+                  {/* Circular Avatar / Initials Circle */}
+                  <div
+                    className={`w-14 h-14 rounded-full ${friend.color} text-white font-bold text-base flex items-center justify-center shadow-md border-2 border-white/20 group-hover:scale-105 transition-all overflow-hidden`}
+                  >
+                    {friend.initials}
+                  </div>
+
+                  {/* Friend Display Name */}
+                  <span className="text-[12px] font-medium text-slate-800 tracking-tight mt-1.5 truncate max-w-[85px] leading-tight group-hover:text-slate-950">
+                    {friend.displayName || friend.name}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Floating Gradient Bottom Overlay with Action Pill */}

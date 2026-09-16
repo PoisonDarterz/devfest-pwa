@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 import { QRCodeSVG } from 'qrcode.react';
 import pinkFlower from '../../assets/pink-flower.svg';
 import bluePlus from '../../assets/blue-plus.svg';
@@ -12,6 +12,7 @@ interface ScannerCameraModuleProps {
   onScanResult: (decodedText: string) => void;
   onClearScan: () => void;
   onBackToBadge: () => void;
+  onNfcBump?: (payload?: string) => void;
   onTriggerFriendDemo: () => void;
   onTriggerBoothDemo: () => void;
   userName?: string;
@@ -25,6 +26,7 @@ export const ScannerCameraModule: React.FC<ScannerCameraModuleProps> = ({
   onScanResult,
   onClearScan,
   onBackToBadge,
+  onNfcBump,
   onTriggerFriendDemo,
   onTriggerBoothDemo,
   userName = 'Zixu Cheah',
@@ -32,7 +34,11 @@ export const ScannerCameraModule: React.FC<ScannerCameraModuleProps> = ({
   qrPayload = 'DEVFEST-KL-2026-ZIXU-CHEAH-SW',
   isNfcSupported,
 }) => {
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const qrCodeRef = useRef<Html5Qrcode | null>(null);
+  const isStartingRef = useRef(false);
+  const [cameraState, setCameraState] = useState<'idle' | 'starting' | 'running' | 'error'>('starting');
+  const [cameraErrorMessage, setCameraErrorMessage] = useState<string | null>(null);
+
   const [nfcBumpFeedback, setNfcBumpFeedback] = useState<string | null>(null);
   const [isNfcActive, setIsNfcActive] = useState(false);
   const hasNfc = isNfcSupported ?? checkNFCSupport().isSupported;
@@ -52,7 +58,6 @@ export const ScannerCameraModule: React.FC<ScannerCameraModuleProps> = ({
           .then(() => {
             setIsNfcActive(true);
             ndef.onreading = (event: any) => {
-              // Haptic feedback
               if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
               setNfcBumpFeedback('NFC Bump Detected! Exchanging profiles...');
 
@@ -65,7 +70,9 @@ export const ScannerCameraModule: React.FC<ScannerCameraModuleProps> = ({
 
               setTimeout(() => {
                 setNfcBumpFeedback(null);
-                if (text) {
+                if (onNfcBump) {
+                  onNfcBump(text || 'NFC-AMANDA-CLOUD');
+                } else if (text) {
                   onScanResult(text);
                 } else {
                   onTriggerFriendDemo();
@@ -88,53 +95,124 @@ export const ScannerCameraModule: React.FC<ScannerCameraModuleProps> = ({
     };
   }, [onScanResult, onTriggerFriendDemo]);
 
-  // Mount HTML5 QR Code camera scanner in bottom viewfinder
+  // Function to initialize and start the camera stream directly
+  const startCameraStream = async () => {
+    if (isStartingRef.current) return;
+    isStartingRef.current = true;
+    setCameraState('starting');
+    setCameraErrorMessage(null);
+
+    try {
+      if (!qrCodeRef.current) {
+        qrCodeRef.current = new Html5Qrcode('qr-camera-viewfinder');
+      }
+
+      await qrCodeRef.current.start(
+        { facingMode: 'environment' },
+        {
+          fps: 12,
+          qrbox: { width: 220, height: 220 },
+        },
+        async (decodedText) => {
+          if (navigator.vibrate) navigator.vibrate(60);
+          const scanner = qrCodeRef.current;
+          if (scanner && scanner.isScanning) {
+            try {
+              await scanner.stop();
+            } catch {}
+          }
+          onScanResult(decodedText);
+        },
+        () => {
+          // per-frame attempts, safe to ignore
+        }
+      );
+
+      setCameraState('running');
+    } catch (err: any) {
+      console.warn('Html5Qrcode direct camera start error:', err);
+      setCameraState('error');
+
+      const isHttps =
+        window.location.protocol === 'https:' ||
+        window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1';
+
+      if (!isHttps) {
+        setCameraErrorMessage('Camera requires a secure connection (HTTPS or localhost) on mobile phones.');
+      } else if (
+        err?.name === 'NotAllowedError' ||
+        err?.message?.includes('Permission') ||
+        err?.message?.includes('NotAllowedError')
+      ) {
+        setCameraErrorMessage('Camera permission was blocked. Tap "Allow Camera" below to grant access.');
+      } else if (err?.name === 'NotFoundError' || err?.message?.includes('Requested device not found')) {
+        setCameraErrorMessage('No camera was detected on this device.');
+      } else {
+        setCameraErrorMessage(err?.message || 'Unable to start camera.');
+      }
+    } finally {
+      isStartingRef.current = false;
+    }
+  };
+
+  // Mount camera on load
   useEffect(() => {
     const timer = setTimeout(() => {
-      try {
-        const scanner = new Html5QrcodeScanner(
-          'qr-camera-viewfinder',
-          {
-            fps: 10,
-            qrbox: { width: 220, height: 220 },
-            showTorchButtonIfSupported: true,
-          },
-          /* verbose= */ false
-        );
-
-        scanner.render(
-          (decodedText) => {
-            if (navigator.vibrate) navigator.vibrate(50);
-            onScanResult(decodedText);
-            scanner.clear().catch(() => {});
-          },
-          () => {
-            // normal per-frame scan attempts
-          }
-        );
-
-        scannerRef.current = scanner;
-      } catch (err) {
-        console.warn('Camera scanner mount warning:', err);
-      }
-    }, 250);
+      startCameraStream();
+    }, 200);
 
     return () => {
       clearTimeout(timer);
-      if (scannerRef.current) {
-        scannerRef.current.clear().catch(() => {});
+      const scanner = qrCodeRef.current;
+      if (scanner) {
+        try {
+          if (scanner.isScanning) {
+            scanner
+              .stop()
+              .then(() => {
+                try {
+                  scanner.clear();
+                } catch {}
+              })
+              .catch(() => {});
+          } else {
+            try {
+              scanner.clear();
+            } catch {}
+          }
+        } catch {}
       }
     };
   }, [onScanResult]);
 
   // Handle interactive NFC bump trigger / test simulation
+  const [bumpIndex, setBumpIndex] = useState(0);
+  const DEMO_BUMP_TOKENS = ['NFC-AMANDA-CLOUD', 'NFC-WEIKANG-AI', 'NFC-JUNYI-DEV', 'NFC-SARAH-TAN', 'NFC-AISHA-DEVOPS'];
+
   const handleNfcBumpTap = () => {
     if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
     setNfcBumpFeedback('NFC Bump Detected! Exchanging profiles...');
+    const token = DEMO_BUMP_TOKENS[bumpIndex % DEMO_BUMP_TOKENS.length];
+    setBumpIndex((prev) => prev + 1);
+
     setTimeout(() => {
       setNfcBumpFeedback(null);
-      onTriggerFriendDemo();
+      if (onNfcBump) {
+        onNfcBump(token);
+      } else {
+        onTriggerFriendDemo();
+      }
     }, 900);
+  };
+
+  const handleExitScanner = async () => {
+    try {
+      if (qrCodeRef.current?.isScanning) {
+        await qrCodeRef.current.stop();
+      }
+    } catch {}
+    onBackToBadge();
   };
 
   return (
@@ -146,25 +224,11 @@ export const ScannerCameraModule: React.FC<ScannerCameraModuleProps> = ({
       transition={{ duration: 0.2 }}
       className="relative flex flex-col h-full w-full overflow-hidden text-white select-none bg-gradient-to-b from-[#2A1545] via-[#351C57] to-[#190F28]"
     >
-      {/* Top Header Bar with Close / Back Controls */}
-      <div className="flex items-center justify-between px-3 pt-1 pb-1 z-30 shrink-0">
+      {/* Top Header Bar: Clean Close Control */}
+      <div className="flex items-center justify-end px-3 pt-1 pb-1 z-30 shrink-0">
         <button
           type="button"
-          onClick={onBackToBadge}
-          className="p-1.5 rounded-full bg-slate-900/60 text-purple-200 hover:text-white transition-colors cursor-pointer border border-purple-400/20"
-          title="Back to My QR Pass"
-          aria-label="Back to My QR Pass"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-
-        <div className="w-12 h-1 bg-purple-300/30 rounded-full" />
-
-        <button
-          type="button"
-          onClick={onBackToBadge}
+          onClick={handleExitScanner}
           className="p-1.5 rounded-full bg-slate-900/60 text-purple-200 hover:text-white transition-colors cursor-pointer border border-purple-400/20"
           title="Close"
           aria-label="Close"
@@ -188,7 +252,10 @@ export const ScannerCameraModule: React.FC<ScannerCameraModuleProps> = ({
         >
           {/* Active NFC status dot */}
           {hasNfc && isNfcActive && (
-            <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border border-purple-900 animate-pulse" title="NFC Ready" />
+            <span
+              className="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border border-purple-900 animate-pulse"
+              title="NFC Ready"
+            />
           )}
 
           {/* Animated pulse halo */}
@@ -270,10 +337,37 @@ export const ScannerCameraModule: React.FC<ScannerCameraModuleProps> = ({
         <div className="w-full max-w-[270px] aspect-square rounded-[26px] bg-[#2E2F34] overflow-hidden border-2 border-slate-700/60 shadow-inner relative flex items-center justify-center text-white">
           <div id="qr-camera-viewfinder" className="w-full h-full object-cover" />
 
-          {/* Reticle / Viewfinder Frame */}
-          {!scanResult && (
-            <div className="absolute inset-0 pointer-events-none flex items-center justify-center p-6">
-              <div className="w-full h-full border-2 border-dashed border-white/30 rounded-2xl animate-pulse" />
+          {/* Camera Starting Spinner */}
+          {cameraState === 'starting' && !scanResult && (
+            <div className="absolute inset-0 bg-[#2E2F34] flex flex-col items-center justify-center p-4 text-center space-y-2 z-10">
+              <div className="w-8 h-8 rounded-full border-2 border-purple-400 border-t-transparent animate-spin" />
+              <p className="text-[11px] text-slate-300 font-medium">Starting camera...</p>
+            </div>
+          )}
+
+          {/* Camera Error / Permission Blocked Message */}
+          {cameraState === 'error' && !scanResult && (
+            <div className="absolute inset-0 bg-slate-950/90 p-4 flex flex-col items-center justify-center text-center space-y-2.5 z-20">
+              <svg className="w-8 h-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <p className="text-[11px] text-slate-200 leading-snug px-2">
+                {cameraErrorMessage || 'Camera access is required to scan QR codes.'}
+              </p>
+              <button
+                type="button"
+                onClick={startCameraStream}
+                className="px-3.5 py-1.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-bold shadow-md cursor-pointer transition-colors active:scale-95"
+              >
+                Allow Camera / Retry
+              </button>
+            </div>
+          )}
+
+          {/* Reticle / Viewfinder Frame when running */}
+          {cameraState === 'running' && !scanResult && (
+            <div className="absolute inset-0 pointer-events-none flex items-center justify-center p-6 z-10">
+              <div className="w-full h-full border-2 border-dashed border-white/40 rounded-2xl animate-pulse" />
             </div>
           )}
 
@@ -289,7 +383,10 @@ export const ScannerCameraModule: React.FC<ScannerCameraModuleProps> = ({
               </p>
               <button
                 type="button"
-                onClick={onClearScan}
+                onClick={() => {
+                  onClearScan();
+                  startCameraStream();
+                }}
                 className="px-3 py-1.5 bg-slate-800 text-slate-300 text-[11px] font-bold rounded-lg hover:text-white cursor-pointer"
               >
                 Scan Another

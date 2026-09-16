@@ -40,6 +40,24 @@ export interface Connection {
   method: 'NFC Bump' | 'QR Scan' | 'Direct Link';
 }
 
+export interface FriendConnection {
+  id: string;
+  name: string;
+  displayName: string;
+  role: string;
+  bio: string;
+  avatar?: string;
+  photoUrl?: string;
+  initials: string;
+  color: string;
+  githubUrl?: string;
+  linkedinUrl?: string;
+  email?: string;
+  qrPayload?: string;
+  method?: string;
+  connectedAt?: string;
+}
+
 export interface Session {
   id: string;
   title: string;

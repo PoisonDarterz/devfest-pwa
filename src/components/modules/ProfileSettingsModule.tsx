@@ -87,22 +87,8 @@ export const ProfileSettingsModule: React.FC<ProfileSettingsModuleProps> = ({
       transition={{ duration: 0.2 }}
       className="flex flex-col h-full w-full relative text-white"
     >
-      {/* Top Drag Handle & Back Bar */}
-      <div className="flex items-center justify-between px-1 pt-1 pb-1">
-        <button
-          type="button"
-          onClick={onBackToHome}
-          className="p-1.5 rounded-full bg-slate-800/80 text-slate-400 hover:text-white transition-colors cursor-pointer"
-          title="Back to Home"
-          aria-label="Back to Home"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-
-        <div className="w-12 h-1 bg-neutral-600/70 rounded-full" />
-
+      {/* Top Header Bar: Clean Close Control */}
+      <div className="flex items-center justify-end px-1 pt-1 pb-1">
         <button
           type="button"
           onClick={onBackToHome}
