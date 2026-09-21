@@ -25,10 +25,12 @@ import FriendsModule, { type FriendConnection } from './modules/FriendsModule';
 import type { RewardSelection } from './modules/RewardsModule';
 import RewardRedeemModal from './modals/RewardRedeemModal';
 import InfoModals from './modals/InfoModals';
+import FullScheduleModal from './modals/FullScheduleModal';
 import type { Session } from '../lib/types';
 
 interface HomeScreenProps {
   onLogout?: () => void;
+  onOpenAdmin?: () => void;
   initialUser?: {
     name: string;
     email: string;
@@ -37,17 +39,18 @@ interface HomeScreenProps {
     bio?: string;
     githubUrl?: string;
     linkedinUrl?: string;
+    ticketType?: string;
   };
 }
 
-export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, initialUser }) => {
+export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onOpenAdmin, initialUser }) => {
   // Drawer View State
   const [sheetState, setSheetState] = useState<
     'home' | 'scan_qr_1' | 'scan_qr_2' | 'participant_profile' | 'booth_profile' | 'rewards' | 'faq' | 'profile_settings' | 'friends'
   >('home');
   const [selectedFriendDetails, setSelectedFriendDetails] = useState<FriendConnection | null>(null);
   const [activeModal, setActiveModal] = useState<
-    'rewards' | 'faq' | 'venue_map' | 'about_gdg' | 'friends' | 'session' | 'profile' | 'notifications' | null
+    'rewards' | 'faq' | 'venue_map' | 'about_gdg' | 'friends' | 'session' | 'profile' | 'notifications' | 'full_schedule' | null
   >(null);
 
   // UI Interactive States
@@ -221,6 +224,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, initialUser })
             selectedSessionIndex={selectedSessionIndex}
             isTracklistExpanded={isTracklistExpanded}
             onToggleExpand={() => setIsTracklistExpanded(!isTracklistExpanded)}
+            onOpenFullSchedule={() => setActiveModal('full_schedule')}
             onSelectSession={(idx) => {
               setSelectedSessionIndex(idx);
               setActiveModal('session');
@@ -395,6 +399,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, initialUser })
           onOpenProfileSettings={() => {
             setActiveModal(null);
             setSheetState('profile_settings');
+          }}
+          onOpenAdmin={onOpenAdmin}
+        />
+
+        {/* FULL EVENT SCHEDULE MODAL */}
+        <FullScheduleModal
+          isOpen={activeModal === 'full_schedule'}
+          onClose={() => setActiveModal(null)}
+          sessions={sessions}
+          savedSessionIds={savedSessionIds}
+          onToggleSaveSession={handleToggleSaveSession}
+          onSelectSessionDetail={(sess) => {
+            const idx = sessions.findIndex((s) => s.id === sess.id);
+            setSelectedSessionIndex(idx !== -1 ? idx : 0);
+            setActiveModal('session');
           }}
         />
 

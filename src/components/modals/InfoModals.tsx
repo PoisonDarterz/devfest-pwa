@@ -10,7 +10,7 @@ import { getNotificationStatus, requestNotificationPermission, sendSystemNotific
 import type { Booth, FAQItem, Session, AppNotification } from '../../lib/types';
 
 interface InfoModalsProps {
-  activeModal: 'rewards' | 'faq' | 'venue_map' | 'about_gdg' | 'friends' | 'session' | 'profile' | 'notifications' | null;
+  activeModal: 'rewards' | 'faq' | 'venue_map' | 'about_gdg' | 'friends' | 'session' | 'profile' | 'notifications' | 'full_schedule' | null;
   booths: Booth[];
   faqs: FAQItem[];
   claimedStamps: string[];
@@ -25,6 +25,7 @@ interface InfoModalsProps {
     bio?: string;
     githubUrl?: string;
     linkedinUrl?: string;
+    ticketType?: string;
   };
   onClaimStampDemo: (boothId: string) => void;
   onClose: () => void;
@@ -36,6 +37,7 @@ interface InfoModalsProps {
   onMarkNotificationRead?: (id: string) => void;
   onMarkAllNotificationsRead?: () => void;
   onOpenProfileSettings?: () => void;
+  onOpenAdmin?: () => void;
 }
 
 export const InfoModals: React.FC<InfoModalsProps> = ({
@@ -57,6 +59,7 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
   onMarkNotificationRead,
   onMarkAllNotificationsRead,
   onOpenProfileSettings,
+  onOpenAdmin,
 }) => {
   const [notifStatus, setNotifStatus] = React.useState(() => getNotificationStatus());
   const [testNotificationFeedback, setTestNotificationFeedback] = React.useState<string | null>(null);
@@ -505,9 +508,32 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
               </div>
             )}
 
-            <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-emerald-400 font-semibold">
-              ✓ Peatix Ticket Linked
+            <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
+              <span className="text-emerald-400 font-semibold">✓ Peatix Ticket Linked</span>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  userProfile.ticketType?.toLowerCase() === 'core team'
+                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                    : 'bg-slate-800 text-slate-400 border border-slate-700'
+                }`}
+              >
+                {userProfile.ticketType || 'Standard Attendee'}
+              </span>
             </div>
+
+            {userProfile.ticketType?.toLowerCase() === 'core team' && onOpenAdmin && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenAdmin();
+                }}
+                className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold transition-all cursor-pointer text-xs flex items-center justify-center gap-1.5 shadow-md shadow-purple-950/40"
+              >
+                <span>⚡</span>
+                <span>Enter Admin & Operations Console ↗</span>
+              </button>
+            )}
 
             {onOpenProfileSettings && (
               <button

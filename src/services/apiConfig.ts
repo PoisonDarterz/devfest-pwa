@@ -21,6 +21,7 @@ export interface UserProfile {
   githubUrl?: string;
   linkedinUrl?: string;
   qrPayload: string;
+  ticketType?: string;
 }
 
 export const getAuthHeaders = (): Record<string, string> => {

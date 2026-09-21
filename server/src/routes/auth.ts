@@ -135,6 +135,7 @@ authRouter.post('/check-status', async (req: Request, res: Response): Promise<vo
           githubUrl: p.github_url || '',
           linkedinUrl: p.linkedin_url || '',
           qrPayload: p.qr_payload || '',
+          ticketType: p.ticket_type || ticketType,
         },
         ticketType: p.ticket_type || ticketType,
         message: 'User profile found in database!',
@@ -206,6 +207,7 @@ authRouter.post('/login', async (req: Request, res: Response): Promise<void> => 
       githubUrl: p.github_url || '',
       linkedinUrl: p.linkedin_url || '',
       qrPayload: p.qr_payload || '',
+      ticketType: p.ticket_type || 'Standard Attendee',
     };
 
     const token = generateToken(user);
@@ -332,6 +334,7 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
         githubUrl: p.github_url || '',
         linkedinUrl: p.linkedin_url || '',
         qrPayload: p.qr_payload,
+        ticketType: p.ticket_type || ticketType,
       };
 
       const token = generateToken(user);
@@ -424,6 +427,7 @@ authRouter.get('/me', async (req: Request, res: Response): Promise<void> => {
           githubUrl: p.github_url || '',
           linkedinUrl: p.linkedin_url || '',
           qrPayload: p.qr_payload || '',
+          ticketType: p.ticket_type || 'Standard Attendee',
         },
       });
       return;
@@ -455,6 +459,7 @@ authRouter.get('/profile/:id', async (req: Request, res: Response): Promise<void
         githubUrl: profile.github_url || '',
         linkedinUrl: profile.linkedin_url || '',
         qrPayload: profile.qr_payload || '',
+        ticketType: profile.ticket_type || 'Standard Attendee',
       });
       return;
     }
@@ -540,6 +545,7 @@ const handleUpdateProfile = async (req: Request, res: Response): Promise<void> =
       githubUrl: p.github_url || '',
       linkedinUrl: p.linkedin_url || '',
       qrPayload: p.qr_payload || newQrPayload,
+      ticketType: p.ticket_type || currentProfile.ticket_type || 'Standard Attendee',
     };
 
     const token = generateToken(updatedUser);

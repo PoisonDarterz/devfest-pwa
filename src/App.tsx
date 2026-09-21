@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { HomeScreen } from './components/HomeScreen';
 import { LoginPage, type PendingGoogleUser } from './components/LoginPage';
+import { AdminScreen } from './components/admin/AdminScreen';
 import { ApiService } from './services/apiService';
 import { supabase } from './lib/supabase';
 
@@ -12,6 +13,7 @@ export interface AuthUser {
   bio?: string;
   githubUrl?: string;
   linkedinUrl?: string;
+  ticketType?: string;
 }
 
 export const App: React.FC = () => {
@@ -33,6 +35,41 @@ export const App: React.FC = () => {
   const [pendingGoogleUser, setPendingGoogleUser] = useState<PendingGoogleUser | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isInitializingAuth, setIsInitializingAuth] = useState(true);
+
+  // Dedicated Route State for /admin
+  const [isAdminRoute, setIsAdminRoute] = useState<boolean>(() => {
+    return (
+      window.location.pathname.startsWith('/admin') ||
+      window.location.hash === '#admin' ||
+      window.location.search.includes('admin=true')
+    );
+  });
+
+  useEffect(() => {
+    const handleLocationChange = () => {
+      setIsAdminRoute(
+        window.location.pathname.startsWith('/admin') ||
+        window.location.hash === '#admin' ||
+        window.location.search.includes('admin=true')
+      );
+    };
+    window.addEventListener('popstate', handleLocationChange);
+    window.addEventListener('hashchange', handleLocationChange);
+    return () => {
+      window.removeEventListener('popstate', handleLocationChange);
+      window.removeEventListener('hashchange', handleLocationChange);
+    };
+  }, []);
+
+  const navigateToAdmin = () => {
+    window.history.pushState({}, '', '/admin');
+    setIsAdminRoute(true);
+  };
+
+  const navigateToApp = () => {
+    window.history.pushState({}, '', '/');
+    setIsAdminRoute(false);
+  };
 
   const handleLoginSuccess = (userProfile: AuthUser) => {
     setUser(userProfile);
@@ -84,6 +121,7 @@ export const App: React.FC = () => {
         localStorage.setItem('devfest_login_provider', 'google');
         handleLoginSuccess({
           ...status.profile,
+          ticketType: status.profile.ticketType || status.ticketType || 'Standard Attendee',
           avatar: '',
         });
       } else {
@@ -114,8 +152,20 @@ export const App: React.FC = () => {
       } else {
         try {
           const sessionUser = await ApiService.getCurrentUser();
+          const activeEmail = sessionUser?.email || user?.email;
           if (sessionUser && isMounted) {
             setUser(sessionUser);
+          }
+          if (activeEmail) {
+            ApiService.getUserProfile(activeEmail).then((latest) => {
+              if (latest && isMounted) {
+                setUser((prev) => {
+                  const merged = { ...(prev || latest), ...latest, ticketType: latest.ticketType || prev?.ticketType || 'Standard Attendee' };
+                  localStorage.setItem('devfest_auth_user', JSON.stringify(merged));
+                  return merged;
+                });
+              }
+            }).catch(() => {});
           }
         } catch (err) {
           console.warn('Session restoration failed:', err);
@@ -148,6 +198,18 @@ export const App: React.FC = () => {
     );
   }
 
+  // 1. Dedicated PC-Centric Admin Screen Route (/admin)
+  if (isAdminRoute) {
+    return (
+      <AdminScreen
+        user={user}
+        onBackToApp={navigateToApp}
+        onLogout={handleLogout}
+      />
+    );
+  }
+
+  // 2. Attendee Login Page
   if (!user) {
     return (
       <LoginPage
@@ -158,7 +220,14 @@ export const App: React.FC = () => {
     );
   }
 
-  return <HomeScreen onLogout={handleLogout} initialUser={user} />;
+  // 3. Attendee Mobile Screen
+  return (
+    <HomeScreen
+      onLogout={handleLogout}
+      onOpenAdmin={navigateToAdmin}
+      initialUser={user}
+    />
+  );
 };
 
 export default App;

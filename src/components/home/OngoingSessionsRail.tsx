@@ -8,6 +8,7 @@ interface OngoingSessionsRailProps {
   isTracklistExpanded: boolean;
   onToggleExpand: () => void;
   onSelectSession: (index: number) => void;
+  onOpenFullSchedule?: () => void;
 }
 
 export const OngoingSessionsRail: React.FC<OngoingSessionsRailProps> = ({
@@ -17,6 +18,7 @@ export const OngoingSessionsRail: React.FC<OngoingSessionsRailProps> = ({
   isTracklistExpanded,
   onToggleExpand,
   onSelectSession,
+  onOpenFullSchedule,
 }) => {
   const track1Sessions = sessions.filter((s) => s.track === 'AI / ML' || s.track === 'Keynote');
   const track2Sessions = sessions.filter((s) => s.track === 'Cloud & DevOps');
@@ -65,27 +67,65 @@ export const OngoingSessionsRail: React.FC<OngoingSessionsRailProps> = ({
 
   return (
     <div className="space-y-2 relative z-10">
-      <div
-        onClick={onToggleExpand}
-        className="flex items-center justify-between cursor-pointer group select-none"
-      >
-        <h2 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-900/90 font-mono flex items-center gap-1">
-          <span>ONGOING SESSIONS</span>
+      <div className="flex items-center justify-between select-none">
+        {/* Expand / Collapse Tracklist Toggle */}
+        <button
+          type="button"
+          onClick={onToggleExpand}
+          className="flex items-center gap-1.5 px-2 py-1 -ml-1 rounded-xl hover:bg-black/10 active:scale-95 transition-all text-slate-900 cursor-pointer group"
+          aria-expanded={isTracklistExpanded}
+          title={isTracklistExpanded ? 'Collapse session details' : 'Expand session details'}
+        >
+          <span className="text-[11px] font-extrabold uppercase tracking-wider font-mono">
+            ONGOING SESSIONS
+          </span>
+          <span className="flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-slate-900/15 text-slate-900 group-hover:bg-slate-900/25 transition-colors">
+            {isTracklistExpanded ? 'Less' : 'Expand'}
+            <svg
+              className={`w-3 h-3 transform transition-transform duration-200 ${
+                isTracklistExpanded ? 'rotate-180' : ''
+              }`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="2.5"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </span>
+        </button>
+
+        {/* Show Full Schedule Prompt */}
+        <button
+          type="button"
+          onClick={onOpenFullSchedule}
+          className="flex items-center gap-1.5 text-[10px] font-extrabold text-slate-950 bg-white/40 hover:bg-white/60 active:scale-95 px-2.5 py-1 rounded-xl transition-all shadow-xs border border-white/50 backdrop-blur-xs cursor-pointer group"
+          title="Open complete conference schedule"
+        >
           <svg
-            className={`w-3.5 h-3.5 transform transition-transform duration-200 ${
-              isTracklistExpanded ? 'rotate-180' : ''
-            }`}
+            className="w-3 h-3 text-slate-900 group-hover:scale-110 transition-transform"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth="2.2"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+            />
+          </svg>
+          <span>Full Schedule</span>
+          <svg
+            className="w-2.5 h-2.5 text-slate-800/80 group-hover:translate-x-0.5 transition-transform"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
             strokeWidth="2.5"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
           </svg>
-        </h2>
-        <span className="text-[10px] font-bold text-slate-900/70 group-hover:text-slate-950 transition-colors">
-          {isTracklistExpanded ? 'Show less' : 'Tap to expand'}
-        </span>
+        </button>
       </div>
 
       <div className="space-y-3 pt-1">

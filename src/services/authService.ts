@@ -17,7 +17,12 @@ export const authService = {
           });
           if (res.ok) {
             const data = await res.json();
-            if (data.profile) return data.profile;
+            if (data.profile) {
+              return {
+                ...data.profile,
+                ticketType: data.profile.ticketType || data.ticketType || 'Standard Attendee',
+              };
+            }
           }
         } catch (err) {
           console.warn('Node backend fetch failed for user profile by email:', err);
@@ -43,6 +48,7 @@ export const authService = {
             githubUrl: p.github_url || '',
             linkedinUrl: p.linkedin_url || '',
             qrPayload: p.qr_payload || '',
+            ticketType: p.ticket_type || 'Standard Attendee',
           };
         }
       } catch (err) {
@@ -67,6 +73,7 @@ export const authService = {
             githubUrl: p.github_url || '',
             linkedinUrl: p.linkedin_url || '',
             qrPayload: p.qr_payload || '',
+            ticketType: p.ticket_type || 'Standard Attendee',
           };
         }
       } catch (err) {
@@ -284,6 +291,7 @@ export const authService = {
           githubUrl: p.github_url || '',
           linkedinUrl: p.linkedin_url || '',
           qrPayload: p.qr_payload || qrPayload,
+          ticketType: p.ticket_type || 'Standard Attendee',
         };
         localStorage.setItem('devfest_auth_user', JSON.stringify(savedProfile));
         return {
@@ -388,6 +396,7 @@ export const authService = {
           githubUrl: p.github_url || '',
           linkedinUrl: p.linkedin_url || '',
           qrPayload: p.qr_payload || qrPayload,
+          ticketType: p.ticket_type || 'Standard Attendee',
         };
         localStorage.setItem('devfest_auth_user', JSON.stringify(updatedProfile));
         return {
@@ -437,7 +446,13 @@ export const authService = {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: cleanEmail }),
         });
-        if (res.ok) return await res.json();
+        if (res.ok) {
+          const data = await res.json();
+          if (data.profile) {
+            data.profile.ticketType = data.profile.ticketType || data.ticketType || 'Standard Attendee';
+          }
+          return data;
+        }
       } catch (err) {
         console.warn('Node backend check-status failed, falling back to direct Supabase:', err);
       }
@@ -504,6 +519,7 @@ export const authService = {
             githubUrl: p.github_url || '',
             linkedinUrl: p.linkedin_url || '',
             qrPayload: p.qr_payload || '',
+            ticketType: p.ticket_type || ticketType,
           },
           ticketType: p.ticket_type || ticketType,
           message: 'User profile found!',

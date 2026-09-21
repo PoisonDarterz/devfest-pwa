@@ -16,6 +16,7 @@ interface UseConferenceDataProps {
     bio?: string;
     githubUrl?: string;
     linkedinUrl?: string;
+    ticketType?: string;
   };
   onOpenFriendsWithDetails?: (friend: FriendConnection) => void;
 }
@@ -39,6 +40,7 @@ export const useConferenceData = ({
     githubUrl: initialUser?.githubUrl || '',
     linkedinUrl: initialUser?.linkedinUrl || '',
     qrPayload: `DEVFEST-KL-2026-${(initialUser?.name || 'Zixu Cheah').toUpperCase().replace(/\s+/g, '-')}`,
+    ticketType: initialUser?.ticketType || 'Standard Attendee',
   });
 
   const [discoveredFriend, setDiscoveredFriend] = useState({
@@ -131,7 +133,13 @@ export const useConferenceData = ({
       setSessions(fetchedSessions);
       setBooths(fetchedBooths);
       setFaqs(fetchedFaqs);
-      if (fetchedUser) setUserProfile(fetchedUser);
+      if (fetchedUser) {
+        setUserProfile((prev) => ({
+          ...prev,
+          ...fetchedUser,
+          ticketType: fetchedUser.ticketType || prev.ticketType || 'Standard Attendee',
+        }));
+      }
       if (fetchedSavedSessions && fetchedSavedSessions.length > 0) {
         setSavedSessionIds(fetchedSavedSessions);
       }

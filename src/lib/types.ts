@@ -19,6 +19,7 @@ export interface UserProfile {
   githubUrl?: string;
   linkedinUrl?: string;
   nfcToken?: string;
+  ticketType?: string;
 }
 
 export interface Booth {
@@ -85,6 +86,7 @@ export interface AppNotification {
 }
 
 export interface FAQItem {
+  id?: string;
   question: string;
   answer: string;
   category: 'Venue & Access' | 'Peatix & Tickets' | 'WiFi & Apps' | 'Booths & Prizes' | string;
