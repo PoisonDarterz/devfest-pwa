@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { USE_NODE_BACKEND, NODE_API_BASE_URL, getAuthHeaders } from './apiConfig';
+import { USE_NODE_BACKEND, NODE_API_BASE_URL, getAuthHeaders, handleAuthUnauthorized } from './apiConfig';
 import type { UserProfile } from './apiConfig';
 
 export const authService = {
@@ -143,14 +143,23 @@ export const authService = {
             localStorage.setItem('devfest_auth_user', JSON.stringify(data.user));
             return data.user;
           }
+        } else if (res.status === 401 || res.status === 403) {
+          console.warn('[Auth] Session token is invalid or expired. Purging stored credentials.');
+          handleAuthUnauthorized();
+          return null;
         }
       } catch (err) {
         console.warn('Session verification with backend failed:', err);
       }
     }
 
-    // Fallback to locally persisted user object
+    // Fallback: only if user has no token or backend is disabled
     try {
+      const storedToken = localStorage.getItem('devfest_auth_token');
+      // If token was present and purged by 401, do not restore stale user!
+      if (token && !storedToken) {
+        return null;
+      }
       const stored = localStorage.getItem('devfest_auth_user');
       return stored ? JSON.parse(stored) : null;
     } catch {
@@ -348,6 +357,15 @@ export const authService = {
             linkedinUrl: profile.linkedinUrl,
           }),
         });
+
+        if (res.status === 401 || res.status === 403) {
+          handleAuthUnauthorized();
+          return {
+            success: false,
+            profile: null as any,
+            message: 'Session has expired. Please sign in again.',
+          };
+        }
 
         const json = await res.json();
         if (res.ok && json.success && json.user) {

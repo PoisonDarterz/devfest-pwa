@@ -56,7 +56,14 @@ export const useConferenceData = ({
   const [friendsList, setFriendsList] = useState<FriendConnection[]>([]);
   const [isFriendsLoading, setIsFriendsLoading] = useState(false);
   const [connectionFeedback, setConnectionFeedback] = useState<string | null>(null);
-  const [claimedStamps, setClaimedStamps] = useState<string[]>(['b1']);
+  const [claimedStamps, setClaimedStamps] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('devfest_claimed_stamps');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
   const [stampFeedback, setStampFeedback] = useState<string | null>(null);
 
   const [loginProvider, setLoginProvider] = useState<'google' | 'email'>(() => {
@@ -119,6 +126,7 @@ export const useConferenceData = ({
         fetchedFriend,
         fetchedNotifs,
         fetchedFriends,
+        fetchedStamps,
       ] = await Promise.all([
         ApiService.getSessions(),
         ApiService.getBooths(),
@@ -128,6 +136,7 @@ export const useConferenceData = ({
         ApiService.getProfileById('22222222-2222-2222-2222-222222222222'),
         ApiService.getNotifications(activeEmail),
         ApiService.getFriends(activeEmail),
+        ApiService.getUserStamps(activeEmail),
       ]);
 
       setSessions(fetchedSessions);
@@ -148,6 +157,12 @@ export const useConferenceData = ({
       }
       if (fetchedFriends && fetchedFriends.length > 0) {
         setFriendsList(fetchedFriends);
+      }
+      if (fetchedStamps && Array.isArray(fetchedStamps.stamps)) {
+        setClaimedStamps(fetchedStamps.stamps);
+        try {
+          localStorage.setItem('devfest_claimed_stamps', JSON.stringify(fetchedStamps.stamps));
+        } catch {}
       }
       setIsFriendsLoading(false);
       if (fetchedFriend) {
@@ -292,10 +307,16 @@ export const useConferenceData = ({
 
   // Handle stamp claim
   const handleClaimStamp = async (boothId: string) => {
-    const res = await ApiService.claimBoothStamp(boothId, claimedStamps);
-    setClaimedStamps(res.stamps);
+    const res = await ApiService.claimBoothStamp(boothId, userProfile.email, claimedStamps);
+    if (res.stamps) {
+      setClaimedStamps(res.stamps);
+      try {
+        localStorage.setItem('devfest_claimed_stamps', JSON.stringify(res.stamps));
+      } catch {}
+    }
     setStampFeedback(res.message);
-    setTimeout(() => setStampFeedback(null), 3000);
+    setTimeout(() => setStampFeedback(null), 3500);
+    return res;
   };
 
   // Handle reward redeem

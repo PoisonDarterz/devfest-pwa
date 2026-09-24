@@ -19,7 +19,7 @@ import { faqService } from './faqService';
 
 // Re-export shared configuration and types
 export type { RewardItem, UserProfile } from './apiConfig';
-export { USE_NODE_BACKEND, NODE_API_BASE_URL, getAuthHeaders } from './apiConfig';
+export { USE_NODE_BACKEND, NODE_API_BASE_URL, getAuthHeaders, handleAuthUnauthorized } from './apiConfig';
 
 // Re-export individual modular services for direct imports
 export {

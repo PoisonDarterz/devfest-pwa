@@ -50,12 +50,14 @@ export const BoothDiscoveryModule: React.FC<BoothDiscoveryModuleProps> = ({
           </div>
 
           <div className="py-2.5 px-4 bg-white/60 rounded-2xl border border-slate-200/80 inline-block min-w-[170px]">
-            <div className="font-heading font-black text-3xl text-slate-950 tracking-tighter">
-              42<span className="text-[#3B72EF]">KL</span>
+            <div className="font-heading font-black text-2xl text-slate-950 tracking-tighter">
+              {booth.logoText ? booth.logoText : booth.name}
             </div>
-            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">
-              Kuala Lumpur | Sunway Education Group
-            </p>
+            {booth.location && (
+              <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">
+                {booth.location}
+              </p>
+            )}
           </div>
 
           <div className="space-y-0.5">
@@ -71,7 +73,7 @@ export const BoothDiscoveryModule: React.FC<BoothDiscoveryModuleProps> = ({
           <div className="p-3 bg-white/40 rounded-2xl border border-slate-200/60">
             <div className="grid grid-cols-5 gap-1.5">
               {[...Array(10)].map((_, idx) => {
-                const isAwarded = idx === 0 || claimedStamps.length > idx;
+                const isAwarded = claimedStamps.length > idx;
                 return (
                   <div
                     key={idx}

@@ -31,3 +31,14 @@ export const getAuthHeaders = (): Record<string, string> => {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 };
+
+export const handleAuthUnauthorized = () => {
+  try {
+    localStorage.removeItem('devfest_auth_token');
+    localStorage.removeItem('devfest_auth_user');
+    localStorage.removeItem('devfest_login_provider');
+  } catch {}
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('devfest:unauthorized'));
+  }
+};

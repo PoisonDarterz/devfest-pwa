@@ -62,6 +62,11 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
   onBackToHome,
 }) => {
   const [localStamps, setLocalStamps] = useState<string[]>(initialClaimedStamps);
+
+  React.useEffect(() => {
+    setLocalStamps(initialClaimedStamps);
+  }, [initialClaimedStamps]);
+
   const [view, setView] = useState<'stamp_progress' | 'box_picker' | 'redemption'>('stamp_progress');
   const [selectedBoxIndex, setSelectedBoxIndex] = useState<number | null>(null);
   const [backendScenario, setBackendScenario] = useState<BackendScenario>('physical_box');

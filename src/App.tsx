@@ -82,10 +82,10 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleLogout = async () => {
+  const handleLogout = async (reason?: string) => {
     setUser(null);
     setPendingGoogleUser(null);
-    setAuthError(null);
+    setAuthError(reason || null);
     try {
       await supabase.auth.signOut();
       localStorage.removeItem('devfest_auth_user');
@@ -151,24 +151,36 @@ export const App: React.FC = () => {
         await handleOAuthUser(session);
       } else {
         try {
+          const hadSavedSession = !!localStorage.getItem('devfest_auth_token') || !!localStorage.getItem('devfest_auth_user');
           const sessionUser = await ApiService.getCurrentUser();
-          const activeEmail = sessionUser?.email || user?.email;
-          if (sessionUser && isMounted) {
-            setUser(sessionUser);
-          }
-          if (activeEmail) {
-            ApiService.getUserProfile(activeEmail).then((latest) => {
-              if (latest && isMounted) {
-                setUser((prev) => {
-                  const merged = { ...(prev || latest), ...latest, ticketType: latest.ticketType || prev?.ticketType || 'Standard Attendee' };
-                  localStorage.setItem('devfest_auth_user', JSON.stringify(merged));
-                  return merged;
-                });
-              }
-            }).catch(() => {});
+
+          if (!sessionUser) {
+            // Token was invalid, expired, or user does not exist
+            if (isMounted) {
+              await handleLogout(hadSavedSession ? 'Your session has expired. Please sign in again.' : undefined);
+            }
+          } else {
+            const activeEmail = sessionUser.email;
+            if (isMounted) {
+              setUser(sessionUser);
+            }
+            if (activeEmail) {
+              ApiService.getUserProfile(activeEmail).then((latest) => {
+                if (latest && isMounted) {
+                  setUser((prev) => {
+                    const merged = { ...(prev || latest), ...latest, ticketType: latest.ticketType || prev?.ticketType || 'Standard Attendee' };
+                    localStorage.setItem('devfest_auth_user', JSON.stringify(merged));
+                    return merged;
+                  });
+                }
+              }).catch(() => {});
+            }
           }
         } catch (err) {
           console.warn('Session restoration failed:', err);
+          if (isMounted) {
+            await handleLogout();
+          }
         }
       }
       if (isMounted) {
@@ -182,11 +194,19 @@ export const App: React.FC = () => {
       }
     });
 
+    // Listen for unauthorized 401 events anywhere in the app to boot immediately
+    const handleUnauthorizedEvent = () => {
+      handleLogout('Your session has expired. Please sign in again.');
+    };
+
+    window.addEventListener('devfest:unauthorized', handleUnauthorizedEvent);
+
     initAuth();
 
     return () => {
       isMounted = false;
       subscription.unsubscribe();
+      window.removeEventListener('devfest:unauthorized', handleUnauthorizedEvent);
     };
   }, []);
 

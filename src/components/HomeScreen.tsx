@@ -26,7 +26,7 @@ import type { RewardSelection } from './modules/RewardsModule';
 import RewardRedeemModal from './modals/RewardRedeemModal';
 import InfoModals from './modals/InfoModals';
 import FullScheduleModal from './modals/FullScheduleModal';
-import type { Session } from '../lib/types';
+import type { Session, Booth } from '../lib/types';
 
 interface HomeScreenProps {
   onLogout?: () => void;
@@ -155,24 +155,51 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onOpenAdmin, i
     return () => clearInterval(timer);
   }, [eligibleUpcomingSessions.length]);
 
-  const discoveredBooth = booths[0] || {
-    id: 'b1',
+  const [activeDiscoveredBooth, setActiveDiscoveredBooth] = useState<Booth | null>(null);
+
+  const discoveredBooth = activeDiscoveredBooth || booths[0] || {
+    id: '44fb4f52-7935-440d-9131-560cb488f344',
     name: '42KL',
     category: 'Community',
     logoText: '42 KL',
     location: 'Hall A - #01',
     description: '',
-    boothCode: '42KL',
+    boothCode: 'BOOTH-42KL',
     points: 15,
   };
 
   const handleScanResult = async (decodedText: string) => {
     setScanResult(decodedText);
-    if (decodedText.toLowerCase().includes('booth')) {
-      handleClaimStamp('b1');
+    const clean = decodedText.trim();
+    const lower = clean.toLowerCase();
+
+    // Check if the scanned QR code corresponds to a partner booth
+    const matchedBooth = booths.find(
+      (b) =>
+        b.id.toLowerCase() === lower ||
+        b.boothCode.toLowerCase() === lower ||
+        lower.includes(b.boothCode.toLowerCase()) ||
+        lower.includes(b.id.toLowerCase()) ||
+        b.name.toLowerCase() === lower
+    );
+
+    const isBoothCode =
+      matchedBooth !== undefined ||
+      lower.includes('booth') ||
+      lower.startsWith('b1') ||
+      lower.startsWith('b2');
+
+    if (isBoothCode) {
+      const boothTarget = matchedBooth ? matchedBooth.id : clean;
+      const res = await handleClaimStamp(boothTarget);
+      if (res?.booth) {
+        setActiveDiscoveredBooth(res.booth);
+      } else if (matchedBooth) {
+        setActiveDiscoveredBooth(matchedBooth);
+      }
       setSheetState('booth_profile');
     } else {
-      await handleConnectFriend(decodedText, 'QR Scan');
+      await handleConnectFriend(clean, 'QR Scan');
     }
   };
 
@@ -301,7 +328,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onOpenAdmin, i
                   onBackToBadge={() => setSheetState('scan_qr_1')}
                   onNfcBump={handleNfcBump}
                   onTriggerFriendDemo={() => handleNfcBump()}
-                  onTriggerBoothDemo={() => setSheetState('booth_profile')}
+                  onTriggerBoothDemo={async () => {
+                    const target = booths[0] || discoveredBooth;
+                    const res = await handleClaimStamp(target.id);
+                    if (res?.booth) {
+                      setActiveDiscoveredBooth(res.booth);
+                    }
+                    setSheetState('booth_profile');
+                  }}
                   userName={userProfile.name}
                   userRole={userProfile.role}
                   qrPayload={userProfile.qrPayload}
