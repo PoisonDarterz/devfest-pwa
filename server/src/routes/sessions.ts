@@ -279,25 +279,30 @@ sessionsRouter.get('/:id/attendees', async (req: Request, res: Response): Promis
 
     const emails = rsvps.map((r) => r.user_email);
 
-    // 2. Fetch attendee profiles
-    const { data: profiles, error: profErr } = await supabaseAdmin
-      .from('profiles')
-      .select('email, full_name, company_role, ticket_type')
-      .in('email', emails);
+    // 2. Fetch attendee profiles and ticket types
+    const [profilesRes, whitelistRes] = await Promise.all([
+      supabaseAdmin.from('profiles').select('email, full_name, company_role').in('email', emails),
+      supabaseAdmin.from('ticketing_whitelists').select('email, ticket_type').in('email', emails),
+    ]);
 
-    if (profErr) {
-      console.warn('Could not fetch profiles for attendees:', profErr);
+    if (profilesRes.error) {
+      console.warn('Could not fetch profiles for attendees:', profilesRes.error);
+    }
+    if (whitelistRes.error) {
+      console.warn('Could not fetch whitelist for attendees:', whitelistRes.error);
     }
 
-    const profileMap = new Map((profiles || []).map((p) => [p.email.toLowerCase(), p]));
+    const profileMap = new Map((profilesRes.data || []).map((p) => [p.email.toLowerCase(), p]));
+    const whitelistMap = new Map((whitelistRes.data || []).map((w) => [w.email.toLowerCase(), w.ticket_type]));
 
     const attendees = rsvps.map((r) => {
-      const prof = profileMap.get(r.user_email.toLowerCase());
+      const emailLower = r.user_email.toLowerCase();
+      const prof = profileMap.get(emailLower);
       return {
         email: r.user_email,
         name: prof?.full_name || r.user_email.split('@')[0],
         role: prof?.company_role || 'Attendee',
-        ticketType: prof?.ticket_type || 'Standard Attendee',
+        ticketType: whitelistMap.get(emailLower) || 'Standard Attendee',
         rsvpdAt: r.created_at,
       };
     });

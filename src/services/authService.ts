@@ -31,7 +31,7 @@ export const authService = {
 
       try {
         const { data, error } = await supabase
-          .from('profiles')
+          .from('vw_profiles')
           .select('*')
           .eq('email', targetEmail)
           .limit(1);
@@ -60,7 +60,7 @@ export const authService = {
       if (sessionUser) return sessionUser;
 
       try {
-        const { data, error } = await supabase.from('profiles').select('*').limit(1);
+        const { data, error } = await supabase.from('vw_profiles').select('*').limit(1);
         if (!error && data && data.length > 0) {
           const p = data[0];
           return {
@@ -210,6 +210,7 @@ export const authService = {
     bio?: string;
     githubUrl?: string;
     linkedinUrl?: string;
+    ticketType?: string;
   }): Promise<{ success: boolean; profile: UserProfile; message: string }> {
     const cleanEmail = profile.email.trim().toLowerCase();
     const qrPayload = `DEVFEST-KL-2026-${profile.name.toUpperCase().replace(/\s+/g, '-')}`;
@@ -300,7 +301,7 @@ export const authService = {
           githubUrl: p.github_url || '',
           linkedinUrl: p.linkedin_url || '',
           qrPayload: p.qr_payload || qrPayload,
-          ticketType: p.ticket_type || 'Standard Attendee',
+          ticketType: profile.ticketType || 'Standard Attendee',
         };
         localStorage.setItem('devfest_auth_user', JSON.stringify(savedProfile));
         return {
@@ -404,6 +405,14 @@ export const authService = {
 
       if (!error && data && data.length > 0) {
         const p = data[0];
+        let existingTicketType = 'Standard Attendee';
+        try {
+          const stored = localStorage.getItem('devfest_auth_user');
+          if (stored) {
+            existingTicketType = JSON.parse(stored).ticketType || existingTicketType;
+          }
+        } catch {}
+
         const updatedProfile: UserProfile = {
           id: p.id,
           name: p.full_name,
@@ -414,7 +423,7 @@ export const authService = {
           githubUrl: p.github_url || '',
           linkedinUrl: p.linkedin_url || '',
           qrPayload: p.qr_payload || qrPayload,
-          ticketType: p.ticket_type || 'Standard Attendee',
+          ticketType: existingTicketType,
         };
         localStorage.setItem('devfest_auth_user', JSON.stringify(updatedProfile));
         return {
@@ -537,9 +546,9 @@ export const authService = {
             githubUrl: p.github_url || '',
             linkedinUrl: p.linkedin_url || '',
             qrPayload: p.qr_payload || '',
-            ticketType: p.ticket_type || ticketType,
+            ticketType,
           },
-          ticketType: p.ticket_type || ticketType,
+          ticketType,
           message: 'User profile found!',
         };
       }

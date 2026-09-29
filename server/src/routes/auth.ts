@@ -135,9 +135,9 @@ authRouter.post('/check-status', async (req: Request, res: Response): Promise<vo
           githubUrl: p.github_url || '',
           linkedinUrl: p.linkedin_url || '',
           qrPayload: p.qr_payload || '',
-          ticketType: p.ticket_type || ticketType,
+          ticketType: ticketType || 'Standard Attendee',
         },
-        ticketType: p.ticket_type || ticketType,
+        ticketType: ticketType || 'Standard Attendee',
         message: 'User profile found in database!',
       });
       return;
@@ -197,6 +197,8 @@ authRouter.post('/login', async (req: Request, res: Response): Promise<void> => 
       }
     }
 
+    const { ticketType } = await checkWhitelistInDb(cleanEmail);
+
     const user = {
       id: p.id,
       name: p.full_name,
@@ -207,7 +209,7 @@ authRouter.post('/login', async (req: Request, res: Response): Promise<void> => 
       githubUrl: p.github_url || '',
       linkedinUrl: p.linkedin_url || '',
       qrPayload: p.qr_payload || '',
-      ticketType: p.ticket_type || 'Standard Attendee',
+      ticketType: ticketType || 'Standard Attendee',
     };
 
     const token = generateToken(user);
@@ -302,7 +304,6 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
     email: cleanEmail,
     full_name: name.trim(),
     company_role: role?.trim() || 'Participant',
-    ticket_type: ticketType || 'Standard Attendee',
     bio: bio?.trim() || '',
     github_url: githubUrl?.trim() || '',
     linkedin_url: linkedinUrl?.trim() || '',
@@ -334,7 +335,7 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
         githubUrl: p.github_url || '',
         linkedinUrl: p.linkedin_url || '',
         qrPayload: p.qr_payload,
-        ticketType: p.ticket_type || ticketType,
+        ticketType: ticketType || 'Standard Attendee',
       };
 
       const token = generateToken(user);
@@ -370,6 +371,7 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
             githubUrl: p.github_url || '',
             linkedinUrl: p.linkedin_url || '',
             qrPayload: p.qr_payload,
+            ticketType: ticketType || 'Standard Attendee',
           };
           const token = generateToken(user);
           res.json({ success: true, token, user, message: 'Profile successfully registered in database!' });
@@ -415,6 +417,7 @@ authRouter.get('/me', async (req: Request, res: Response): Promise<void> => {
 
     if (!error && data && data.length > 0) {
       const p = data[0];
+      const { ticketType } = await checkWhitelistInDb(cleanEmail);
       res.json({
         success: true,
         user: {
@@ -427,7 +430,7 @@ authRouter.get('/me', async (req: Request, res: Response): Promise<void> => {
           githubUrl: p.github_url || '',
           linkedinUrl: p.linkedin_url || '',
           qrPayload: p.qr_payload || '',
-          ticketType: p.ticket_type || 'Standard Attendee',
+          ticketType: ticketType || 'Standard Attendee',
         },
       });
       return;
@@ -449,6 +452,7 @@ authRouter.get('/profile/:id', async (req: Request, res: Response): Promise<void
     const { data, error } = await supabaseAdmin.from('profiles').select('*').eq('id', id).limit(1);
     if (!error && data && data.length > 0) {
       const profile = data[0];
+      const { ticketType } = await checkWhitelistInDb(profile.email);
       res.json({
         id: profile.id,
         name: profile.full_name,
@@ -459,7 +463,7 @@ authRouter.get('/profile/:id', async (req: Request, res: Response): Promise<void
         githubUrl: profile.github_url || '',
         linkedinUrl: profile.linkedin_url || '',
         qrPayload: profile.qr_payload || '',
-        ticketType: profile.ticket_type || 'Standard Attendee',
+        ticketType: ticketType || 'Standard Attendee',
       });
       return;
     }
@@ -545,7 +549,7 @@ const handleUpdateProfile = async (req: Request, res: Response): Promise<void> =
       githubUrl: p.github_url || '',
       linkedinUrl: p.linkedin_url || '',
       qrPayload: p.qr_payload || newQrPayload,
-      ticketType: p.ticket_type || currentProfile.ticket_type || 'Standard Attendee',
+      ticketType: (await checkWhitelistInDb(cleanEmail)).ticketType || 'Standard Attendee',
     };
 
     const token = generateToken(updatedUser);

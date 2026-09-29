@@ -172,7 +172,7 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- Insert User Profiles matching MOCK_USER_PROFILE and MOCK_DISCOVERED_FRIEND
-INSERT INTO public.profiles (id, email, full_name, company_role, bio, github_url, linkedin_url, qr_payload, ticket_type, is_ticket_verified, is_checked_in)
+INSERT INTO public.profiles (id, email, full_name, company_role, bio, github_url, linkedin_url, qr_payload, is_ticket_verified, is_checked_in)
 VALUES
   (
     '11111111-1111-1111-1111-111111111111',
@@ -183,7 +183,6 @@ VALUES
     'https://github.com/zixucheah',
     'https://linkedin.com/in/zixucheah',
     'DEVFEST-KL-2026-ZIXU-CHEAH-SW',
-    'Standard Attendee',
     true,
     true
   ),
@@ -196,7 +195,6 @@ VALUES
     'https://github.com/jonaschuan',
     'https://linkedin.com/in/jonaschuan',
     'DEVFEST-KL-2026-JONAS-CHUAN-DEV',
-    'Standard Attendee',
     true,
     false
   )

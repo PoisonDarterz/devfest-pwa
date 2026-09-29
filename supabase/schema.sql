@@ -36,7 +36,6 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     linkedin_url TEXT,
     password_hash TEXT,
     nfc_token TEXT UNIQUE,
-    ticket_type TEXT NOT NULL DEFAULT 'Standard Attendee',
     is_ticket_verified BOOLEAN DEFAULT false,
     is_checked_in BOOLEAN DEFAULT false,
     checked_in_at TIMESTAMPTZ,
@@ -46,6 +45,32 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 
 -- Index for NFC token lookups
 CREATE INDEX IF NOT EXISTS idx_profiles_nfc_token ON public.profiles(nfc_token);
+
+-- -----------------------------------------------------------------------------
+-- 2b. PROFILES VIEW (Dynamically joins ticket_type from ticketing_whitelists)
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE VIEW public.vw_profiles AS
+SELECT 
+    p.id, 
+    p.email, 
+    p.full_name, 
+    p.company_role, 
+    p.bio, 
+    p.github_url, 
+    p.linkedin_url,
+    p.password_hash, 
+    p.nfc_token, 
+    p.is_ticket_verified, 
+    p.is_checked_in, 
+    p.checked_in_at,
+    p.qr_payload, 
+    p.created_at,
+    COALESCE(tw.ticket_type, 'Standard Attendee') AS ticket_type, 
+    tw.external_ref_id
+FROM public.profiles p
+LEFT JOIN public.ticketing_whitelists tw ON LOWER(p.email) = LOWER(tw.email);
+
+GRANT SELECT ON public.vw_profiles TO anon, authenticated, service_role;
 
 -- -----------------------------------------------------------------------------
 -- 3. EMAIL VALIDATION FUNCTION (RPC Endpoint for PWA Registration)
