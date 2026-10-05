@@ -5,6 +5,7 @@ import blueGift from '../../assets/blue-gift.svg';
 import greyGift from '../../assets/grey-gift.svg';
 import dinoSos from '../../assets/dino-sos.png';
 import { ArrowLeftIcon } from '../common/Icons';
+import { rewardsService, type UserRewardItem } from '../../services/rewardsService';
 
 export interface RewardSelection {
   id: string;
@@ -14,6 +15,12 @@ export interface RewardSelection {
 
 interface RewardsModuleProps {
   claimedStamps: string[];
+  userProfile?: {
+    id?: string;
+    email?: string;
+    name?: string;
+    role?: string;
+  };
   onSelectReward?: (reward: RewardSelection) => void;
   onBackToHome: () => void;
   onClaimStampDemo?: (boothId: string) => void;
@@ -59,6 +66,7 @@ const MYSTERY_PRIZES = [
 
 export const RewardsModule: React.FC<RewardsModuleProps> = ({
   claimedStamps: initialClaimedStamps,
+  userProfile,
   onBackToHome,
 }) => {
   const [localStamps, setLocalStamps] = useState<string[]>(initialClaimedStamps);
@@ -74,9 +82,39 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
   const [wonPrize, setWonPrize] = useState(MYSTERY_PRIZES[0]);
   const [isStaffRedeemed, setIsStaffRedeemed] = useState(false);
 
+  // Participant Rewards State
+  const [userRewards, setUserRewards] = useState<UserRewardItem[]>([]);
+  const [isLoadingRewards, setIsLoadingRewards] = useState(false);
+  const [activeVoucherReward, setActiveVoucherReward] = useState<UserRewardItem | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    rewardTitle: string;
+    claimCode: string;
+    onConfirm: () => Promise<void> | void;
+  } | null>(null);
+  const [isClaiming, setIsClaiming] = useState(false);
+
+  const fetchUserRewards = async () => {
+    if (!userProfile?.email && !userProfile?.id) return;
+    setIsLoadingRewards(true);
+    try {
+      const rewards = await rewardsService.getUserRewards(userProfile.email, userProfile.id);
+      setUserRewards(rewards);
+    } catch (err) {
+      console.warn('Failed to load user rewards:', err);
+    } finally {
+      setIsLoadingRewards(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchUserRewards();
+  }, [userProfile?.email, userProfile?.id]);
+
   const stampsCount = localStamps.length;
   const isUnlocked = stampsCount >= 10;
   const remainingStamps = Math.max(0, 10 - stampsCount);
+  const unclaimedCount = userRewards.filter((r) => r.status !== 'claimed').length;
 
   // Demo helpers to quickly test 10 stamps
   const handleAddDemoStamp = () => {
@@ -87,6 +125,61 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
 
   const handleFillAllStamps = () => {
     setLocalStamps(Array.from({ length: 10 }, (_, i) => `demo-stamp-${i + 1}`));
+  };
+
+  // Staff claim for participant's swag item with accidental contact confirmation
+  const handlePromptStaffClaim = (reward: UserRewardItem) => {
+    setConfirmModal({
+      isOpen: true,
+      rewardTitle: reward.title,
+      claimCode: reward.claimCode,
+      onConfirm: async () => {
+        setIsClaiming(true);
+        try {
+          const res = await rewardsService.claimUserReward(reward.id, userProfile?.email);
+          if (res.success) {
+            const nowIso = new Date().toISOString();
+            setUserRewards((prev) =>
+              prev.map((r) =>
+                r.id === reward.id ? { ...r, status: 'claimed', claimedAt: nowIso } : r
+              )
+            );
+            if (activeVoucherReward?.id === reward.id) {
+              setActiveVoucherReward((prev) =>
+                prev ? { ...prev, status: 'claimed', claimedAt: nowIso } : null
+              );
+            }
+          }
+        } catch (err) {
+          console.error('Error claiming user reward:', err);
+        } finally {
+          setIsClaiming(false);
+          setConfirmModal(null);
+        }
+      },
+    });
+  };
+
+  // Staff claim for 10-stamp blind box with accidental contact confirmation
+  const handlePromptBlindBoxStaffClaim = () => {
+    const title =
+      backendScenario === 'digital_gacha'
+        ? wonPrize.title
+        : `Blind Box #${(selectedBoxIndex ?? 0) + 1}`;
+    const code =
+      backendScenario === 'digital_gacha'
+        ? wonPrize.code
+        : `DF26-BOX-0${(selectedBoxIndex ?? 0) + 1}`;
+
+    setConfirmModal({
+      isOpen: true,
+      rewardTitle: title,
+      claimCode: code,
+      onConfirm: () => {
+        setIsStaffRedeemed(true);
+        setConfirmModal(null);
+      },
+    });
   };
 
   // Handle Box Selection Confirmation
@@ -190,6 +283,113 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
                   )}
                 </div>
 
+              </div>
+            </div>
+
+            {/* ============================================================= */}
+            {/* PARTICIPANT'S REWARDS: CLAIMED & UNCLAIMED TRACKER            */}
+            {/* ============================================================= */}
+            <div className="w-full max-w-sm mx-auto space-y-3 pt-1 text-left">
+              {/* Header */}
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                  <h4 className="font-heading font-black text-sm text-slate-900 tracking-tight">
+                    My Rewards & Swags
+                  </h4>
+                  {unclaimedCount > 0 ? (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-300 text-amber-950 border border-amber-400 shadow-2xs">
+                      {unclaimedCount} Unclaimed
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      All Claimed ✓
+                    </span>
+                  )}
+                </div>
+                <span className="text-[11px] text-slate-500 font-medium">
+                  {userRewards.length} Total
+                </span>
+              </div>
+
+              {/* Rewards List */}
+              <div className="space-y-2">
+                {isLoadingRewards ? (
+                  <div className="bg-[#ECE6DA] rounded-2xl p-4 text-center border-2 border-[#DED7C9] text-xs text-slate-500">
+                    Loading your rewards...
+                  </div>
+                ) : userRewards.length === 0 ? (
+                  <div className="bg-[#ECE6DA] rounded-2xl p-4 text-center border-2 border-[#DED7C9] space-y-1 shadow-xs">
+                    <p className="text-xs font-semibold text-slate-800">No rewards issued yet.</p>
+                    <p className="text-[11px] text-slate-600">Collect stamps from partner booths to unlock blind boxes!</p>
+                  </div>
+                ) : (
+                  userRewards.map((reward) => {
+                    const isClaimed = reward.status === 'claimed';
+                    return (
+                      <div
+                        key={reward.id}
+                        onClick={() => setActiveVoucherReward(reward)}
+                        className={`p-3 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between gap-3 shadow-xs ${
+                          isClaimed
+                            ? 'bg-[#E5DFD4]/70 border-[#D4CCC0] hover:bg-[#E0D9CD]'
+                            : 'bg-[#ECE6DA] border-[#DED7C9] hover:bg-[#E4DDD0] hover:shadow-md active:scale-[0.99]'
+                        }`}
+                      >
+                        {/* Icon */}
+                        <div
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
+                            isClaimed
+                              ? 'bg-slate-200 border-slate-300 opacity-60'
+                              : 'bg-blue-100 border-blue-300'
+                          }`}
+                        >
+                          <img
+                            src={blueGift}
+                            alt="Gift"
+                            className={`w-5.5 h-5.5 object-contain ${isClaimed ? 'grayscale opacity-70' : ''}`}
+                          />
+                        </div>
+
+                        {/* Details */}
+                        <div className="grow min-w-0 space-y-0.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-blue-700 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200">
+                              {reward.rewardType === 'entry_swag' ? 'Entry Swag' : 'Event Perk'}
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-500">
+                              {reward.claimCode}
+                            </span>
+                          </div>
+                          <h5 className="font-heading font-extrabold text-xs text-slate-950 truncate">
+                            {reward.title}
+                          </h5>
+                          <p className="text-[10px] text-slate-600 truncate">
+                            {reward.subtitle || reward.description}
+                          </p>
+                        </div>
+
+                        {/* Status Badge */}
+                        <div className="shrink-0">
+                          {isClaimed ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500 bg-slate-200/80 px-2 py-0.5 rounded-full border border-slate-300">
+                              <svg className="w-3 h-3 text-slate-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                              <span>Claimed</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-900 bg-amber-300 px-2 py-0.5 rounded-full shadow-2xs border border-amber-400 transition-colors">
+                              <span>Claim</span>
+                              <svg className="w-3 h-3 text-amber-900" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                              </svg>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
 
@@ -465,8 +665,8 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
                   ) : (
                     <button
                       type="button"
-                      onClick={() => setIsStaffRedeemed(true)}
-                      className="w-full py-3.5 px-4 bg-slate-950 hover:bg-slate-800 text-white font-heading font-extrabold text-xs rounded-xl transition-all cursor-pointer shadow-md"
+                      onClick={handlePromptBlindBoxStaffClaim}
+                      className="w-full py-3.5 px-4 bg-slate-950 hover:bg-slate-800 text-white font-heading font-extrabold text-xs rounded-xl transition-all cursor-pointer shadow-md active:scale-98"
                     >
                       Counter Staff: Tap to Mark Received
                     </button>
@@ -511,8 +711,8 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
                   ) : (
                     <button
                       type="button"
-                      onClick={() => setIsStaffRedeemed(true)}
-                      className="w-full py-3.5 px-4 bg-slate-950 hover:bg-slate-800 text-white font-heading font-extrabold text-xs rounded-xl transition-all cursor-pointer shadow-md"
+                      onClick={handlePromptBlindBoxStaffClaim}
+                      className="w-full py-3.5 px-4 bg-slate-950 hover:bg-slate-800 text-white font-heading font-extrabold text-xs rounded-xl transition-all cursor-pointer shadow-md active:scale-98"
                     >
                       Counter Staff: Tap to Hand Out Prize
                     </button>
@@ -535,6 +735,181 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
           </motion.div>
         )}
 
+      </AnimatePresence>
+
+      {/* ================================================================= */}
+      {/* VOUCHER / PASS DETAIL MODAL (Swag Claim Voucher)                  */}
+      {/* ================================================================= */}
+      <AnimatePresence>
+        {activeVoucherReward && (
+          <motion.div
+            key="voucher-detail-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 select-none"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 15 }}
+              transition={{ duration: 0.2 }}
+              className="bg-[#ECE6DA] text-slate-900 rounded-[36px] p-6 pt-7 shadow-2xl border-4 border-[#DED7C9] max-w-sm w-full text-center space-y-4 relative"
+            >
+              {/* Close Button */}
+              <button
+                type="button"
+                onClick={() => setActiveVoucherReward(null)}
+                className="absolute top-4 right-4 p-1 rounded-full text-slate-500 hover:text-slate-900 cursor-pointer"
+                aria-label="Close"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+
+              {/* Gift Icon */}
+              <div className="w-16 h-16 rounded-2xl bg-blue-100 border border-blue-300 flex items-center justify-center mx-auto shadow-sm">
+                <img src={blueGift} alt="Gift" className="w-9 h-9 object-contain" />
+              </div>
+
+              {/* Title & Description */}
+              <div className="space-y-1">
+                <span className="text-[10px] font-mono font-bold tracking-widest text-blue-700 uppercase bg-blue-50 px-2.5 py-0.5 rounded-md border border-blue-200">
+                  {activeVoucherReward.rewardType === 'entry_swag' ? 'Official Entry Swag Pass' : 'Exclusive Event Perk'}
+                </span>
+                <h3 className="font-heading font-black text-xl text-slate-950 tracking-tight leading-tight">
+                  {activeVoucherReward.title}
+                </h3>
+                <p className="font-serif italic font-medium text-xs text-slate-700 leading-relaxed px-2">
+                  {activeVoucherReward.subtitle || activeVoucherReward.description}
+                </p>
+              </div>
+
+              {/* Voucher Pass Code Box */}
+              <div className="p-4 bg-[#E0D9CD] rounded-2xl border border-[#CDC5B6] space-y-1">
+                <p className="text-[10px] text-slate-600 font-medium uppercase tracking-wider">
+                  Redemption Pass Code
+                </p>
+                <p className="text-xl font-mono font-black text-slate-950 tracking-wider">
+                  {activeVoucherReward.claimCode}
+                </p>
+                <p className="text-[10px] text-slate-600">
+                  Location: Registration & Helpdesk Counter
+                </p>
+                <div className="pt-1">
+                  {activeVoucherReward.status === 'claimed' ? (
+                    <span className="text-[10px] text-emerald-800 font-bold bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
+                      ● Claimed & Received by Attendee
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-amber-800 font-bold bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
+                      ● Active Live Voucher • Ready for Collection
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <div className="pt-1">
+                {activeVoucherReward.status === 'claimed' ? (
+                  <div className="p-3.5 bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-bold rounded-2xl flex items-center justify-center gap-1.5 shadow-xs">
+                    <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Received & Verified by Staff</span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handlePromptStaffClaim(activeVoucherReward)}
+                    className="w-full py-4 px-4 bg-slate-950 hover:bg-slate-800 text-white font-heading font-extrabold text-xs rounded-2xl transition-all cursor-pointer shadow-lg active:scale-98 flex items-center justify-center gap-2"
+                  >
+                    <span>Counter Staff: Tap to Mark Received</span>
+                    <svg className="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ================================================================= */}
+      {/* CONFIRMATION DIALOG MODAL (Prevent accidental contact / tap)      */}
+      {/* ================================================================= */}
+      <AnimatePresence>
+        {confirmModal?.isOpen && (
+          <motion.div
+            key="confirm-modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-70 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 select-none"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 12 }}
+              transition={{ duration: 0.18 }}
+              className="bg-[#ECE6DA] text-slate-950 rounded-[32px] p-6 text-center space-y-4 max-w-xs w-full shadow-2xl border-4 border-[#DED7C9] relative"
+            >
+              {/* Warning Icon Shield */}
+              <div className="w-14 h-14 rounded-2xl bg-amber-100 border border-amber-300 mx-auto flex items-center justify-center shadow-xs">
+                <svg className="w-7 h-7 text-amber-600" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                </svg>
+              </div>
+
+              <div className="space-y-1">
+                <h3 className="font-heading font-black text-lg text-slate-950 tracking-tight leading-snug">
+                  Confirm Handout?
+                </h3>
+                <p className="text-xs text-slate-600 leading-relaxed font-sans">
+                  Please confirm that the participant has received this item. This action marks the voucher as claimed and cannot be undone.
+                </p>
+              </div>
+
+              {/* Reward Item Summary */}
+              <div className="p-3 bg-[#E0D9CD] rounded-2xl border border-[#CDC5B6] space-y-0.5 text-left">
+                <p className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">Item & Voucher Code</p>
+                <p className="text-xs font-heading font-extrabold text-slate-950 truncate">{confirmModal.rewardTitle}</p>
+                <p className="text-xs font-mono font-bold text-blue-700">{confirmModal.claimCode}</p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  disabled={isClaiming}
+                  onClick={() => setConfirmModal(null)}
+                  className="h-12 px-4 rounded-xl bg-transparent border border-slate-400 text-slate-700 text-xs font-bold hover:bg-black/5 active:scale-95 cursor-pointer disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isClaiming}
+                  onClick={() => confirmModal.onConfirm()}
+                  className="h-12 grow rounded-2xl bg-slate-950 text-white text-xs font-heading font-extrabold hover:bg-slate-800 transition-transform active:scale-95 cursor-pointer shadow-md flex items-center justify-center gap-1.5 disabled:opacity-60"
+                >
+                  {isClaiming ? (
+                    <span>Confirming...</span>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>Confirm Received</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </motion.div>
   );

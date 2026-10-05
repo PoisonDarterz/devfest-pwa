@@ -365,6 +365,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onOpenAdmin, i
             {sheetState === 'rewards' && (
               <RewardsModule
                 claimedStamps={claimedStamps}
+                userProfile={userProfile}
                 onSelectReward={(r) => setSelectedReward(r)}
                 onBackToHome={() => setSheetState('home')}
               />

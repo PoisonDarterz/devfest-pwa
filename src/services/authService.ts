@@ -256,20 +256,42 @@ export const authService = {
       }
     }
 
+    const cleanName = profile.name.trim();
+    const cleanRole = profile.role?.trim();
+    const cleanBio = profile.bio?.trim();
+    const cleanLinkedin = profile.linkedinUrl?.trim();
+    const cleanGithub = profile.githubUrl?.trim() || '';
+
+    if (!cleanName || !cleanEmail || !cleanRole || !cleanBio || !cleanLinkedin) {
+      return {
+        success: false,
+        profile: null as any,
+        message: 'Name, email, role, bio, and LinkedIn URL are required. GitHub is optional.',
+      };
+    }
+
     try {
-      let profileId = crypto.randomUUID ? crypto.randomUUID() : '';
       try {
         const { data: existingProf } = await supabase
           .from('profiles')
-          .select('id')
+          .select('id, password_hash')
           .eq('email', cleanEmail)
           .limit(1);
-        if (existingProf && existingProf.length > 0 && existingProf[0].id) {
-          profileId = existingProf[0].id;
+        if (existingProf && existingProf.length > 0) {
+          const hasPwd = !!(existingProf[0].password_hash && existingProf[0].password_hash.trim().length > 0);
+          return {
+            success: false,
+            profile: null as any,
+            message: hasPwd
+              ? 'An account with this email is already registered. Please log in with your password.'
+              : 'An account with this email was registered using Google. Please sign in with Google.',
+          };
         }
       } catch {
         // ignore
       }
+
+      let profileId = profile.id || (crypto.randomUUID ? crypto.randomUUID() : '');
 
       const { data, error } = await supabase
         .from('profiles')
@@ -277,11 +299,11 @@ export const authService = {
           {
             id: profileId || undefined,
             email: cleanEmail,
-            full_name: profile.name,
-            company_role: profile.role || 'Participant',
-            bio: profile.bio || '',
-            github_url: profile.githubUrl || '',
-            linkedin_url: profile.linkedinUrl || '',
+            full_name: cleanName,
+            company_role: cleanRole,
+            bio: cleanBio,
+            github_url: cleanGithub,
+            linkedin_url: cleanLinkedin,
             qr_payload: qrPayload,
           },
           { onConflict: 'email' }
@@ -291,6 +313,32 @@ export const authService = {
 
       if (!error && data && data.length > 0) {
         const p = data[0];
+
+        // Ensure Entry Swag reward exists for participant
+        try {
+          const { data: existingSwag } = await supabase
+            .from('user_rewards')
+            .select('id')
+            .eq('user_id', p.id)
+            .eq('reward_type', 'entry_swag')
+            .maybeSingle();
+
+          if (!existingSwag) {
+            const codeSuffix = Math.floor(1000 + Math.random() * 9000);
+            await supabase.from('user_rewards').insert({
+              user_id: p.id,
+              reward_type: 'entry_swag',
+              title: 'DevFest 2026 Welcome Swag Pack',
+              subtitle: 'Official attendee tote bag, lanyard, badge & stickers.',
+              description: 'Head over to the Registration Counter to claim your official DevFest Kuala Lumpur 2026 swag pack.',
+              claim_code: `DF26-SWAG-${codeSuffix}`,
+              status: 'unclaimed',
+            });
+          }
+        } catch (swagErr) {
+          console.warn('Could not generate entry swag reward in fallback:', swagErr);
+        }
+
         const savedProfile: UserProfile = {
           id: p.id,
           name: p.full_name,
@@ -460,6 +508,7 @@ export const authService = {
   async checkUserStatus(email: string): Promise<{
     isWhitelisted: boolean;
     hasProfile: boolean;
+    hasPassword?: boolean;
     profile: UserProfile | null;
     ticketType: string;
     message: string;
@@ -517,6 +566,7 @@ export const authService = {
       return {
         isWhitelisted: false,
         hasProfile: false,
+        hasPassword: false,
         profile: null,
         ticketType: 'Standard Attendee',
         message: 'Email not found in ticketed whitelist. Please use the email registered on Ticket2u / Peatix.',
@@ -533,9 +583,11 @@ export const authService = {
 
       if (!profError && profileData && profileData.length > 0) {
         const p = profileData[0];
+        const hasPwd = !!(p.password_hash && p.password_hash.trim().length > 0);
         return {
           isWhitelisted: true,
           hasProfile: true,
+          hasPassword: hasPwd,
           profile: {
             id: p.id,
             name: p.full_name,
@@ -559,6 +611,7 @@ export const authService = {
     return {
       isWhitelisted: true,
       hasProfile: false,
+      hasPassword: false,
       profile: null,
       ticketType,
       message: 'Ticket verified! Welcome to DevFest, please complete your profile.',

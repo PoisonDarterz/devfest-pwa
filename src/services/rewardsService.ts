@@ -3,6 +3,20 @@ import type { Booth } from '../lib/types';
 import { USE_NODE_BACKEND, NODE_API_BASE_URL, getAuthHeaders } from './apiConfig';
 import type { RewardItem } from './apiConfig';
 
+export interface UserRewardItem {
+  id: string;
+  userId: string;
+  rewardId?: string;
+  rewardType: 'entry_swag' | 'blind_box' | 'custom' | string;
+  title: string;
+  subtitle?: string;
+  description?: string;
+  claimCode: string;
+  status: 'unclaimed' | 'claimed';
+  claimedAt?: string;
+  createdAt?: string;
+}
+
 export interface UserStampsResponse {
   success: boolean;
   stamps: string[];
@@ -354,5 +368,141 @@ export const rewardsService = {
       success: false,
       message: 'Unable to process blind box draw. Please try again later.',
     };
+  },
+
+  // Fetch Participant's Specific Rewards (Entry Swag, Blind Box, etc.)
+  async getUserRewards(userEmail?: string, userId?: string): Promise<UserRewardItem[]> {
+    const cleanEmail = userEmail?.trim().toLowerCase();
+
+    if (USE_NODE_BACKEND) {
+      try {
+        const params = new URLSearchParams();
+        if (cleanEmail) params.append('email', cleanEmail);
+        if (userId) params.append('userId', userId);
+
+        const res = await fetch(`${NODE_API_BASE_URL}/gacha/user-rewards?${params.toString()}`, {
+          headers: getAuthHeaders(),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.rewards)) {
+            return data.rewards;
+          }
+        }
+      } catch (err) {
+        console.warn('Node backend fetch failed for user rewards:', err);
+      }
+    }
+
+    // Direct Supabase Fallback
+    try {
+      let targetUserId = userId;
+      if (!targetUserId && cleanEmail) {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('id')
+          .ilike('email', cleanEmail)
+          .maybeSingle();
+        targetUserId = prof?.id;
+      }
+
+      if (targetUserId) {
+        const { data, error } = await supabase
+          .from('user_rewards')
+          .select('*')
+          .eq('user_id', targetUserId)
+          .order('created_at', { ascending: false });
+
+        if (!error && data) {
+          return data.map((r: any) => ({
+            id: r.id,
+            userId: r.user_id,
+            rewardId: r.reward_id,
+            rewardType: r.reward_type,
+            title: r.title,
+            subtitle: r.subtitle || '',
+            description: r.description || '',
+            claimCode: r.claim_code,
+            status: r.status,
+            claimedAt: r.claimed_at,
+            createdAt: r.created_at,
+          }));
+        }
+      }
+    } catch (err) {
+      console.warn('Direct Supabase fetch failed for user rewards:', err);
+    }
+
+    return [];
+  },
+
+  // Counter Staff Marks Participant's Reward as Claimed/Received
+  async claimUserReward(
+    userRewardId: string,
+    userEmail?: string
+  ): Promise<{ success: boolean; message: string; reward?: UserRewardItem }> {
+    if (USE_NODE_BACKEND) {
+      try {
+        const res = await fetch(`${NODE_API_BASE_URL}/gacha/claim-reward`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ userRewardId, email: userEmail }),
+        });
+        if (res.ok) {
+          return await res.json();
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          return { success: false, message: errData.message || 'Failed to claim reward.' };
+        }
+      } catch (err: any) {
+        console.warn('Node backend claim reward failed:', err);
+      }
+    }
+
+    // Direct Supabase Fallback
+    try {
+      const now = new Date().toISOString();
+      const { data, error } = await supabase
+        .from('user_rewards')
+        .update({
+          status: 'claimed',
+          claimed_at: now,
+        })
+        .eq('id', userRewardId)
+        .select()
+        .maybeSingle();
+
+      if (!error && data) {
+        try {
+          await supabase.from('user_redemptions').insert({
+            user_id: data.user_id,
+            reward_id: data.reward_id || null,
+            redeemed_at: now,
+          });
+        } catch {}
+
+        return {
+          success: true,
+          message: 'Reward claimed successfully!',
+          reward: {
+            id: data.id,
+            userId: data.user_id,
+            rewardId: data.reward_id,
+            rewardType: data.reward_type,
+            title: data.title,
+            subtitle: data.subtitle || '',
+            description: data.description || '',
+            claimCode: data.claim_code,
+            status: data.status,
+            claimedAt: data.claimed_at,
+            createdAt: data.created_at,
+          },
+        };
+      }
+    } catch (err: any) {
+      console.error('Direct Supabase claim reward failed:', err);
+    }
+
+    return { success: false, message: 'Failed to update reward status.' };
   },
 };

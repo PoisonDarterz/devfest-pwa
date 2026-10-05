@@ -212,12 +212,32 @@ CREATE TABLE IF NOT EXISTS public.blind_boxes (
 );
 
 -- -----------------------------------------------------------------------------
--- 9. USER REDEMPTIONS TABLE (Reward redemption audit log)
+-- 9. USER REWARDS TABLE (Tracks Entry Swag & unlocked participant rewards)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.user_rewards (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    reward_id UUID REFERENCES public.rewards(id) ON DELETE SET NULL,
+    reward_type TEXT NOT NULL DEFAULT 'entry_swag', -- 'entry_swag', 'blind_box', 'custom'
+    title TEXT NOT NULL,
+    subtitle TEXT,
+    description TEXT,
+    claim_code TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'unclaimed', -- 'unclaimed', 'claimed'
+    claimed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_rewards_user_id ON public.user_rewards(user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_user_rewards_entry_swag ON public.user_rewards(user_id, reward_type) WHERE (reward_type = 'entry_swag');
+
+-- -----------------------------------------------------------------------------
+-- 9.1 USER REDEMPTIONS TABLE (Reward redemption audit log)
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.user_redemptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-    reward_id UUID NOT NULL REFERENCES public.rewards(id) ON DELETE CASCADE,
+    reward_id UUID REFERENCES public.rewards(id) ON DELETE SET NULL,
     redeemed_at TIMESTAMPTZ DEFAULT now()
 );
 

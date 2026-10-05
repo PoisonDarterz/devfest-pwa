@@ -58,6 +58,33 @@ const checkWhitelistInDb = async (cleanEmail: string): Promise<{ isWhitelisted: 
   return { isWhitelisted: false, ticketType: 'Standard Attendee' };
 };
 
+// Helper: Ensure Entry Swag reward exists for a registered participant
+export async function ensureEntrySwagReward(userId: string): Promise<void> {
+  try {
+    const { data: existing } = await supabaseAdmin
+      .from('user_rewards')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('reward_type', 'entry_swag')
+      .maybeSingle();
+
+    if (!existing) {
+      const codeSuffix = Math.floor(1000 + Math.random() * 9000);
+      await supabaseAdmin.from('user_rewards').insert({
+        user_id: userId,
+        reward_type: 'entry_swag',
+        title: 'DevFest 2026 Welcome Swag Pack',
+        subtitle: 'Official attendee tote bag, lanyard, badge & stickers.',
+        description: 'Head over to the Registration Counter to claim your official DevFest Kuala Lumpur 2026 swag pack.',
+        claim_code: `DF26-SWAG-${codeSuffix}`,
+        status: 'unclaimed',
+      });
+    }
+  } catch (err) {
+    console.warn('Could not generate entry swag reward:', err);
+  }
+}
+
 // =============================================================================
 // 1. Validate Registration Email Whitelist
 // =============================================================================
@@ -122,9 +149,11 @@ authRouter.post('/check-status', async (req: Request, res: Response): Promise<vo
 
     if (!profErr && profData && profData.length > 0) {
       const p = profData[0];
+      const hasPwd = !!(p.password_hash && p.password_hash.trim().length > 0);
       res.json({
         isWhitelisted: true,
         hasProfile: true,
+        hasPassword: hasPwd,
         profile: {
           id: p.id,
           name: p.full_name,
@@ -150,6 +179,7 @@ authRouter.post('/check-status', async (req: Request, res: Response): Promise<vo
   res.json({
     isWhitelisted: true,
     hasProfile: false,
+    hasPassword: false,
     profile: null,
     ticketType,
     message: 'Ticket verified! Please complete your registration.',
@@ -188,13 +218,18 @@ authRouter.post('/login', async (req: Request, res: Response): Promise<void> => 
 
     const p = data[0];
 
-    // Verify password if password_hash exists
-    if (p.password_hash) {
-      const isMatch = await bcrypt.compare(password, p.password_hash);
-      if (!isMatch) {
-        res.status(401).json({ message: 'Incorrect password. Please try again.' });
-        return;
-      }
+    // Reject password login if account was registered via Google SSO (no password set)
+    if (!p.password_hash) {
+      res.status(400).json({
+        message: 'This account was registered using Google. Please sign in with Google.',
+      });
+      return;
+    }
+
+    const isMatch = await bcrypt.compare(password, p.password_hash);
+    if (!isMatch) {
+      res.status(401).json({ message: 'Incorrect password. Please try again.' });
+      return;
     }
 
     const { ticketType } = await checkWhitelistInDb(cleanEmail);
@@ -230,8 +265,21 @@ authRouter.post('/login', async (req: Request, res: Response): Promise<void> => 
 authRouter.post('/register', async (req: Request, res: Response): Promise<void> => {
   const { id, email, name, password, role, bio, githubUrl, linkedinUrl } = req.body;
 
-  if (!email || !name) {
-    res.status(400).json({ message: 'Email and name are required.' });
+  if (
+    !email?.trim() ||
+    !name?.trim() ||
+    !role?.trim() ||
+    !bio?.trim() ||
+    !linkedinUrl?.trim()
+  ) {
+    res.status(400).json({
+      message: 'Name, email, role, bio, and LinkedIn URL are required. GitHub is optional.',
+    });
+    return;
+  }
+
+  if (!id && (!password || typeof password !== 'string' || password.trim().length === 0)) {
+    res.status(400).json({ message: 'Password is required for account creation.' });
     return;
   }
 
@@ -247,29 +295,38 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
     return;
   }
 
+  // 1.5. Prevent duplicate registration: check if user already has a registered profile
+  try {
+    const { data: existingProf, error: existErr } = await supabaseAdmin
+      .from('profiles')
+      .select('id, password_hash')
+      .eq('email', cleanEmail)
+      .limit(1);
+
+    if (!existErr && existingProf && existingProf.length > 0) {
+      const hasPwd = !!(existingProf[0].password_hash && existingProf[0].password_hash.trim().length > 0);
+      res.status(409).json({
+        success: false,
+        alreadyRegistered: true,
+        hasPassword: hasPwd,
+        message: hasPwd
+          ? 'An account with this email is already registered. Please log in with your password.'
+          : 'An account with this email was registered using Google. Please sign in with Google.',
+      });
+      return;
+    }
+  } catch (err) {
+    console.warn('Error checking existing profile during registration:', err);
+  }
+
   // 2. Hash password if provided
   let passwordHash: string | null = null;
   if (password && typeof password === 'string' && password.trim().length > 0) {
     passwordHash = await bcrypt.hash(password, 10);
   }
 
-  // 3. Determine UUID: Check if passed, exists in DB, or create auth user in Supabase
+  // 3. Determine UUID: Check if passed, or create auth user in Supabase
   let profileId: string | null = id || null;
-  if (!profileId) {
-    try {
-      const { data: existingProf } = await supabaseAdmin
-        .from('profiles')
-        .select('id')
-        .eq('email', cleanEmail)
-        .limit(1);
-
-      if (existingProf && existingProf.length > 0 && existingProf[0].id) {
-        profileId = existingProf[0].id;
-      }
-    } catch (err) {
-      console.warn('Error checking existing profile ID:', err);
-    }
-  }
 
   // If new user, create record in auth.users via signUp to satisfy profiles_id_fkey
   if (!profileId) {
@@ -303,10 +360,10 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
     id: profileId,
     email: cleanEmail,
     full_name: name.trim(),
-    company_role: role?.trim() || 'Participant',
-    bio: bio?.trim() || '',
+    company_role: role.trim(),
+    bio: bio.trim(),
     github_url: githubUrl?.trim() || '',
-    linkedin_url: linkedinUrl?.trim() || '',
+    linkedin_url: linkedinUrl.trim(),
     qr_payload: `DEVFEST-KL-2026-${name.trim().toUpperCase().replace(/\s+/g, '-')}`,
     is_ticket_verified: true,
   };
@@ -325,6 +382,7 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
 
     if (!error && data && data.length > 0) {
       const p = data[0];
+      await ensureEntrySwagReward(p.id);
       const user = {
         id: p.id,
         name: p.full_name,
@@ -361,6 +419,7 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
 
         if (!retryErr && retryData && retryData.length > 0) {
           const p = retryData[0];
+          await ensureEntrySwagReward(p.id);
           const user = {
             id: p.id,
             name: p.full_name,

@@ -69,6 +69,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   // Interactive States
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(initialErrorMessage || null);
+  const [hasPassword, setHasPassword] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (initialPendingGoogleUser) {
@@ -135,6 +136,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       }
 
       if (status.hasProfile && status.profile) {
+        setHasPassword(status.hasPassword ?? true);
         setMode('login_password');
       } else {
         const defaultName = email
@@ -235,6 +237,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         setIsLoading(false);
         return;
       }
+
+      if (status.hasProfile) {
+        setHasPassword(status.hasPassword ?? true);
+        setErrorMessage(
+          status.hasPassword === false
+            ? 'An account with this email is already registered using Google. Please sign in with Google.'
+            : 'An account with this email is already registered. Please log in with your password.'
+        );
+        setMode('login_password');
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(false);
       setMode('complete_profile');
     } catch {
@@ -259,12 +274,38 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     setIsLoading(true);
     setErrorMessage(null);
 
-    const activeName = profileName.trim() || 'DevFest Attendee';
-    const activeEmail = email.trim() || googleUserEmail || 'attendee@devfest.kl';
-    const activeRole = role.trim() || 'Participant';
+    const activeName = profileName.trim();
+    const activeEmail = (email.trim() || googleUserEmail || '').trim().toLowerCase();
+    const activeRole = role.trim();
     const activeBio = bio.trim();
     const activeGithub = githubUrl.trim();
     const activeLinkedin = linkedinUrl.trim();
+
+    if (!activeName) {
+      setIsLoading(false);
+      setErrorMessage('Please enter your profile name.');
+      return;
+    }
+    if (!activeEmail) {
+      setIsLoading(false);
+      setErrorMessage('Please enter a valid email address.');
+      return;
+    }
+    if (!activeRole) {
+      setIsLoading(false);
+      setErrorMessage('Please enter your role / title.');
+      return;
+    }
+    if (!activeBio) {
+      setIsLoading(false);
+      setErrorMessage('Please enter a short bio.');
+      return;
+    }
+    if (!activeLinkedin) {
+      setIsLoading(false);
+      setErrorMessage('Please enter your LinkedIn profile URL.');
+      return;
+    }
 
     try {
       const result = await ApiService.saveUserProfile({
@@ -274,7 +315,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         password: password.trim() || undefined,
         role: activeRole,
         bio: activeBio,
-        githubUrl: activeGithub,
+        githubUrl: activeGithub || undefined,
         linkedinUrl: activeLinkedin,
       });
 
@@ -388,8 +429,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 password={password}
                 setPassword={setPassword}
                 isLoading={isLoading}
+                hasPassword={hasPassword !== false}
+                onGoogleSignIn={() => handleGoogleSignIn(false)}
                 onSubmit={handleLoginPasswordSubmit}
-                onChangeEmail={() => setMode('login_email')}
+                onChangeEmail={() => {
+                  setPassword('');
+                  setErrorMessage(null);
+                  setMode('login_email');
+                }}
               />
             )}
 
