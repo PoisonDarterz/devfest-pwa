@@ -2,6 +2,12 @@ import { supabase } from '../lib/supabase';
 import { USE_NODE_BACKEND, NODE_API_BASE_URL, getAuthHeaders, handleAuthUnauthorized } from './apiConfig';
 import type { UserProfile } from './apiConfig';
 
+export function generateAttendeeQrPayload(name: string): string {
+  const nameSlug = name.trim().toUpperCase().replace(/[^A-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'ATTENDEE';
+  const suffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `DEVFEST-KL-2026-${nameSlug}-${suffix}`;
+}
+
 export const authService = {
   // Fetch Current User Profile
   async getUserProfile(email?: string): Promise<UserProfile | null> {
@@ -213,7 +219,7 @@ export const authService = {
     ticketType?: string;
   }): Promise<{ success: boolean; profile: UserProfile; message: string }> {
     const cleanEmail = profile.email.trim().toLowerCase();
-    const qrPayload = `DEVFEST-KL-2026-${profile.name.toUpperCase().replace(/\s+/g, '-')}`;
+    const qrPayload = generateAttendeeQrPayload(profile.name);
 
     if (USE_NODE_BACKEND) {
       try {
@@ -314,30 +320,61 @@ export const authService = {
       if (!error && data && data.length > 0) {
         const p = data[0];
 
-        // Ensure Entry Swag reward exists for participant
-        try {
-          const { data: existingSwag } = await supabase
-            .from('user_rewards')
+        // Ensure Entry Swag reward exists for participant (Walk-in attendees do not receive entry swag)
+        const isWalkIn = (profile.ticketType || '').toLowerCase().includes('walk-in');
+        if (!isWalkIn) {
+          try {
+            const { data: existingSwag } = await supabase
+              .from('user_rewards')
             .select('id')
             .eq('user_id', p.id)
             .eq('reward_type', 'entry_swag')
             .maybeSingle();
 
           if (!existingSwag) {
-            const codeSuffix = Math.floor(1000 + Math.random() * 9000);
+            // Generate sequential auto-incremented claim code
+            const { data: allSwags } = await supabase
+              .from('user_rewards')
+              .select('claim_code')
+              .ilike('claim_code', 'DF26-SWAG-%');
+
+            const existingCodes = new Set<string>();
+            let maxSequential = 0;
+            if (allSwags && allSwags.length > 0) {
+              for (const row of allSwags) {
+                const code = (row.claim_code || '').trim();
+                existingCodes.add(code);
+                const match = code.match(/-0*(\d+)$/);
+                if (match) {
+                  const num = parseInt(match[1], 10);
+                  if (!isNaN(num) && num < 1000 && num > maxSequential) {
+                    maxSequential = num;
+                  }
+                }
+              }
+            }
+
+            let nextNum = Math.max(maxSequential + 1, (allSwags?.length || 0) + 1);
+            let claimCode = `DF26-SWAG-${String(nextNum).padStart(4, '0')}`;
+            while (existingCodes.has(claimCode)) {
+              nextNum++;
+              claimCode = `DF26-SWAG-${String(nextNum).padStart(4, '0')}`;
+            }
+
             await supabase.from('user_rewards').insert({
               user_id: p.id,
               reward_type: 'entry_swag',
               title: 'DevFest 2026 Welcome Swag Pack',
               subtitle: 'Official attendee tote bag, lanyard, badge & stickers.',
               description: 'Head over to the Registration Counter to claim your official DevFest Kuala Lumpur 2026 swag pack.',
-              claim_code: `DF26-SWAG-${codeSuffix}`,
+              claim_code: claimCode,
               status: 'unclaimed',
             });
           }
         } catch (swagErr) {
           console.warn('Could not generate entry swag reward in fallback:', swagErr);
         }
+      }
 
         const savedProfile: UserProfile = {
           id: p.id,
@@ -390,7 +427,15 @@ export const authService = {
     linkedinUrl?: string;
   }): Promise<{ success: boolean; profile: UserProfile; message: string }> {
     const cleanEmail = profile.email.trim().toLowerCase();
-    const qrPayload = `DEVFEST-KL-2026-${profile.name.toUpperCase().replace(/\s+/g, '-')}`;
+    const storedUser = (() => {
+      try {
+        const raw = localStorage.getItem('devfest_auth_user');
+        return raw ? JSON.parse(raw) : null;
+      } catch {
+        return null;
+      }
+    })();
+    const qrPayload = storedUser?.qrPayload || generateAttendeeQrPayload(profile.name);
 
     if (USE_NODE_BACKEND) {
       try {

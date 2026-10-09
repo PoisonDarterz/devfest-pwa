@@ -12,6 +12,7 @@ interface HomeDrawerContentProps {
   onOpenFriends: () => void;
   onOpenRewards: () => void;
   onOpenFaq: () => void;
+  isWalkIn?: boolean;
 }
 
 export const HomeDrawerContent: React.FC<HomeDrawerContentProps> = ({
@@ -20,6 +21,7 @@ export const HomeDrawerContent: React.FC<HomeDrawerContentProps> = ({
   onOpenFriends,
   onOpenRewards,
   onOpenFaq,
+  isWalkIn,
 }) => {
   return (
     <motion.div
@@ -101,10 +103,18 @@ export const HomeDrawerContent: React.FC<HomeDrawerContentProps> = ({
       <div className="flex items-center gap-3 overflow-x-auto pb-1 scrollbar-none shrink-0 pt-2">
         <button
           onClick={onOpenRewards}
-          className="flex items-center gap-2 px-4 py-3 rounded-full bg-[#EAE4D9] text-[#1C1D21] font-bold text-xs shadow-lg hover:scale-105 transition-transform shrink-0 active:scale-95 cursor-pointer"
+          className="flex items-center gap-2 px-4 py-3 rounded-full bg-[#EAE4D9] text-[#1C1D21] font-bold text-xs shadow-lg hover:scale-105 transition-transform shrink-0 active:scale-95 cursor-pointer relative"
         >
           <GiftIcon />
           <span>Rewards</span>
+          {isWalkIn && (
+            <span
+              className="text-[10px] ml-0.5"
+              title="Rewards restricted for Walk-in passes"
+            >
+              🔒
+            </span>
+          )}
         </button>
 
         <button

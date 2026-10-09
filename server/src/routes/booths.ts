@@ -29,12 +29,13 @@ const resolveUserId = async (
   }
 
   // 2. If userId is provided, verify it exists in profiles
-  if (userId) {
+  const isUuid = !!userId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId.trim());
+  if (userId && isUuid) {
     try {
       const { data } = await supabaseAdmin
         .from('profiles')
         .select('id, email')
-        .eq('id', userId)
+        .eq('id', userId.trim())
         .maybeSingle();
 
       if (data?.id) {
@@ -286,13 +287,34 @@ boothsRouter.post('/stamp', async (req: Request, res: Response): Promise<void> =
 
   try {
     // 2. Resolve User
-    const { userId } = await resolveUserId(req, bodyUserId, bodyEmail);
+    const { userId, email: userEmail } = await resolveUserId(req, bodyUserId, bodyEmail);
     if (!userId) {
       res.status(401).json({
         success: false,
         message: 'Attendee must be signed in with a registered profile to claim stamps.',
       });
       return;
+    }
+
+    // Check Walk-in restriction
+    try {
+      const { data: prof } = await supabaseAdmin
+        .from('vw_profiles')
+        .select('ticket_type')
+        .eq('id', userId)
+        .maybeSingle();
+
+      const ticketType = prof?.ticket_type || '';
+      if (ticketType.toLowerCase().includes('walk-in')) {
+        res.status(403).json({
+          success: false,
+          isWalkIn: true,
+          message: 'Passport stamps and rewards are exclusive to registered attendees. Walk-in passes do not include stamp access.',
+        });
+        return;
+      }
+    } catch (err) {
+      console.warn('[Booths] Error checking walk-in status:', err);
     }
 
     // 3. Resolve Booth

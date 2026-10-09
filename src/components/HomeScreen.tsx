@@ -32,6 +32,7 @@ interface HomeScreenProps {
   onLogout?: () => void;
   onOpenAdmin?: () => void;
   initialUser?: {
+    id?: string;
     name: string;
     email: string;
     role: string;
@@ -220,6 +221,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onOpenAdmin, i
   };
 
   const isExpanded = sheetState !== 'home';
+  const isWalkIn = (userProfile?.ticketType || '').toLowerCase().includes('walk-in');
   const drawerHeight = isExpanded
     ? 'calc(100% - 64px)'
     : isTracklistExpanded
@@ -263,6 +265,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onOpenAdmin, i
             onOpenRewards={() => setSheetState('rewards')}
             onOpenFaq={() => setSheetState('faq')}
             onOpenFriends={() => setSheetState('friends')}
+            isWalkIn={isWalkIn}
           />
         </div>
 
@@ -292,6 +295,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onOpenAdmin, i
                 onOpenFriends={() => setSheetState('friends')}
                 onOpenRewards={() => setSheetState('rewards')}
                 onOpenFaq={() => setSheetState('faq')}
+                isWalkIn={isWalkIn}
               />
             )}
 

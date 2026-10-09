@@ -9,6 +9,7 @@ import type { FriendConnection } from '../components/modules/FriendsModule';
 
 interface UseConferenceDataProps {
   initialUser?: {
+    id?: string;
     name: string;
     email: string;
     role: string;
@@ -31,7 +32,7 @@ export const useConferenceData = ({
   const [faqs, setFaqs] = useState<FAQItem[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [userProfile, setUserProfile] = useState<UserProfile>({
-    id: 'usr_123',
+    id: initialUser?.id || '',
     name: initialUser?.name || 'Zixu Cheah',
     role: initialUser?.role || 'Software Engineer',
     email: initialUser?.email || 'zixu.cheah@devfest.kl',
@@ -307,6 +308,14 @@ export const useConferenceData = ({
 
   // Handle stamp claim
   const handleClaimStamp = async (boothId: string) => {
+    const isWalkIn = (userProfile?.ticketType || '').toLowerCase().includes('walk-in');
+    if (isWalkIn) {
+      const msg = 'Passport stamps and rewards are exclusive to registered attendees. Walk-in passes do not include stamp access.';
+      setStampFeedback(msg);
+      setTimeout(() => setStampFeedback(null), 4000);
+      return { success: false, stamps: claimedStamps, message: msg };
+    }
+
     const res = await ApiService.claimBoothStamp(boothId, userProfile.email, claimedStamps);
     if (res.stamps) {
       setClaimedStamps(res.stamps);

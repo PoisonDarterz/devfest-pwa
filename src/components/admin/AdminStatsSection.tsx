@@ -48,9 +48,9 @@ export const AdminStatsSection: React.FC<AdminStatsSectionProps> = ({
 
   if (!stats) return null;
 
-  const checkInRate = Math.round((stats.checkedInUsers / (stats.totalUsers || 1)) * 100);
-  const nfcPct = Math.round((stats.nfcConnectionsCount / (stats.totalConnections || 1)) * 100);
-  const qrPct = 100 - nfcPct;
+  const checkInRate = stats.totalUsers > 0 ? Math.round((stats.checkedInUsers / stats.totalUsers) * 100) : 0;
+  const nfcPct = stats.totalConnections > 0 ? Math.round((stats.nfcConnectionsCount / stats.totalConnections) * 100) : 0;
+  const qrPct = stats.totalConnections > 0 ? 100 - nfcPct : 0;
 
   // PRESENTATION / AUDIENCE BIG SCREEN MODE
   if (isPresentationMode) {
@@ -158,38 +158,46 @@ export const AdminStatsSection: React.FC<AdminStatsSectionProps> = ({
             </div>
 
             <div className="space-y-3">
-              {stats.topNetworkers.map((user) => (
-                <div
-                  key={user.id}
-                  className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-800/60 border border-slate-800"
-                >
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs ${
-                        user.rank === 1
-                          ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/20'
-                          : user.rank === 2
-                          ? 'bg-slate-300 text-slate-950'
-                          : user.rank === 3
-                          ? 'bg-amber-700 text-white'
-                          : 'bg-slate-800 text-slate-400 border border-slate-700'
-                      }`}
-                    >
-                      {user.rank}
-                    </span>
-                    <div>
-                      <p className="font-bold text-white text-sm">{user.name}</p>
-                      <p className="text-xs text-slate-400">{user.role}</p>
+              {stats.topNetworkers.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 text-sm font-mono">
+                  No attendee connections recorded yet.
+                </div>
+              ) : (
+                stats.topNetworkers.map((user) => (
+                  <div
+                    key={user.id}
+                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-800/60 border border-slate-800"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs ${
+                          user.rank === 1
+                            ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/20'
+                            : user.rank === 2
+                            ? 'bg-slate-300 text-slate-950'
+                            : user.rank === 3
+                            ? 'bg-amber-700 text-white'
+                            : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        }`}
+                      >
+                        {user.rank}
+                      </span>
+                      <div>
+                        <p className="font-bold text-white text-sm">{user.name}</p>
+                        <p className="text-xs text-slate-400">{user.role}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-mono font-bold text-base text-emerald-400">
+                        {user.connectionCount}
+                      </span>
+                      <span className="text-[10px] text-slate-400 block">
+                        {user.connectionCount === 1 ? 'friend connected' : 'friends connected'}
+                      </span>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <span className="font-mono font-bold text-base text-emerald-400">
-                      {user.connectionCount}
-                    </span>
-                    <span className="text-[10px] text-slate-400 block">friends connected</span>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
 
@@ -208,27 +216,33 @@ export const AdminStatsSection: React.FC<AdminStatsSectionProps> = ({
             </div>
 
             <div className="space-y-3">
-              {stats.topSessions.slice(0, 4).map((sess, idx) => (
-                <div
-                  key={sess.id}
-                  className="p-3.5 rounded-2xl bg-slate-800/60 border border-slate-800 space-y-1.5"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-md">
-                      #{idx + 1} • {sess.time}
-                    </span>
-                    <span className="text-xs font-mono font-bold text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-                      🔥 {sess.rsvpCount} RSVPs
-                    </span>
-                  </div>
-                  <h4 className="font-bold text-white text-sm leading-snug">{sess.title}</h4>
-                  <div className="flex items-center gap-2 text-xs text-slate-400">
-                    <span>{sess.speakerName}</span>
-                    <span>•</span>
-                    <span className="text-slate-300">{sess.room}</span>
-                  </div>
+              {stats.topSessions.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 text-sm font-mono">
+                  No session data available.
                 </div>
-              ))}
+              ) : (
+                stats.topSessions.slice(0, 4).map((sess, idx) => (
+                  <div
+                    key={sess.id}
+                    className="p-3.5 rounded-2xl bg-slate-800/60 border border-slate-800 space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-md">
+                        #{idx + 1} • {sess.time}
+                      </span>
+                      <span className="text-xs font-mono font-bold text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                        🔥 {sess.rsvpCount} RSVPs
+                      </span>
+                    </div>
+                    <h4 className="font-bold text-white text-sm leading-snug">{sess.title}</h4>
+                    <div className="flex items-center gap-2 text-xs text-slate-400">
+                      <span>{sess.speakerName}</span>
+                      <span>•</span>
+                      <span className="text-slate-300">{sess.room}</span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -308,8 +322,14 @@ export const AdminStatsSection: React.FC<AdminStatsSectionProps> = ({
             </div>
           </div>
           <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden flex">
-            <div className="h-full bg-blue-500" style={{ width: `${nfcPct}%` }} title="NFC Bump" />
-            <div className="h-full bg-cyan-400" style={{ width: `${qrPct}%` }} title="QR Scan" />
+            {stats.totalConnections > 0 ? (
+              <>
+                <div className="h-full bg-blue-500" style={{ width: `${nfcPct}%` }} title="NFC Bump" />
+                <div className="h-full bg-cyan-400" style={{ width: `${qrPct}%` }} title="QR Scan" />
+              </>
+            ) : (
+              <div className="h-full bg-slate-700 w-full" />
+            )}
           </div>
         </div>
 
@@ -322,13 +342,13 @@ export const AdminStatsSection: React.FC<AdminStatsSectionProps> = ({
           <div>
             <div className="text-3xl font-black text-amber-400 font-heading">{stats.completedStampCards}</div>
             <p className="text-xs text-slate-400 mt-1">
-              {Math.round((stats.completedStampCards / (stats.totalUsers || 1)) * 100)}% of attendees completed cards
+              {stats.totalUsers > 0 ? Math.round((stats.completedStampCards / stats.totalUsers) * 100) : 0}% of attendees completed cards
             </p>
           </div>
           <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
             <div
               className="h-full bg-amber-500 transition-all duration-500"
-              style={{ width: `${Math.min(100, Math.round((stats.completedStampCards / (stats.totalUsers || 1)) * 100))}%` }}
+              style={{ width: `${stats.totalUsers > 0 ? Math.min(100, Math.round((stats.completedStampCards / stats.totalUsers) * 100)) : 0}%` }}
             />
           </div>
         </div>
@@ -342,11 +362,14 @@ export const AdminStatsSection: React.FC<AdminStatsSectionProps> = ({
           <div>
             <div className="text-3xl font-black text-purple-400 font-heading">{stats.totalRsvps}</div>
             <p className="text-xs text-slate-400 mt-1">
-              Avg {(stats.totalRsvps / (stats.totalUsers || 1)).toFixed(1)} sessions saved / attendee
+              Avg {stats.totalUsers > 0 ? (stats.totalRsvps / stats.totalUsers).toFixed(1) : '0.0'} sessions saved / attendee
             </p>
           </div>
           <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-            <div className="h-full bg-purple-500 transition-all duration-500 w-[72%]" />
+            <div
+              className="h-full bg-purple-500 transition-all duration-500"
+              style={{ width: `${stats.totalUsers > 0 ? Math.min(100, Math.round((stats.totalRsvps / (stats.totalUsers * 2)) * 100)) : 0}%` }}
+            />
           </div>
         </div>
       </div>
@@ -363,35 +386,41 @@ export const AdminStatsSection: React.FC<AdminStatsSectionProps> = ({
           </div>
 
           <div className="space-y-2.5">
-            {stats.topNetworkers.map((networker) => (
-              <div
-                key={networker.id}
-                className="flex items-center justify-between p-2.5 rounded-xl bg-slate-800/40 hover:bg-slate-800/80 border border-slate-800 transition-colors"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span
-                    className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[11px] shrink-0 ${
-                      networker.rank === 1
-                        ? 'bg-amber-400 text-slate-950'
-                        : networker.rank === 2
-                        ? 'bg-slate-300 text-slate-950'
-                        : networker.rank === 3
-                        ? 'bg-amber-700 text-white'
-                        : 'bg-slate-800 text-slate-400'
-                    }`}
-                  >
-                    {networker.rank}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-white truncate">{networker.name}</p>
-                    <p className="text-[10px] text-slate-400 truncate">{networker.role}</p>
-                  </div>
-                </div>
-                <span className="font-mono font-bold text-xs text-emerald-400 shrink-0 ml-2">
-                  {networker.connectionCount} contacts
-                </span>
+            {stats.topNetworkers.length === 0 ? (
+              <div className="p-8 text-center text-slate-500 text-xs font-mono">
+                No attendee connections recorded yet.
               </div>
-            ))}
+            ) : (
+              stats.topNetworkers.map((networker) => (
+                <div
+                  key={networker.id}
+                  className="flex items-center justify-between p-2.5 rounded-xl bg-slate-800/40 hover:bg-slate-800/80 border border-slate-800 transition-colors"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span
+                      className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[11px] shrink-0 ${
+                        networker.rank === 1
+                          ? 'bg-amber-400 text-slate-950'
+                          : networker.rank === 2
+                          ? 'bg-slate-300 text-slate-950'
+                          : networker.rank === 3
+                          ? 'bg-amber-700 text-white'
+                          : 'bg-slate-800 text-slate-400'
+                      }`}
+                    >
+                      {networker.rank}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-white truncate">{networker.name}</p>
+                      <p className="text-[10px] text-slate-400 truncate">{networker.role}</p>
+                    </div>
+                  </div>
+                  <span className="font-mono font-bold text-xs text-emerald-400 shrink-0 ml-2">
+                    {networker.connectionCount} {networker.connectionCount === 1 ? 'contact' : 'contacts'}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -405,21 +434,27 @@ export const AdminStatsSection: React.FC<AdminStatsSectionProps> = ({
           </div>
 
           <div className="space-y-2.5">
-            {stats.topSessions.slice(0, 5).map((sess) => (
-              <div
-                key={sess.id}
-                className="p-2.5 rounded-xl bg-slate-800/40 hover:bg-slate-800/80 border border-slate-800 space-y-1 transition-colors"
-              >
-                <div className="flex items-center justify-between gap-1 text-[10px]">
-                  <span className="text-slate-400 font-mono">{sess.time} • {sess.room}</span>
-                  <span className="font-mono font-bold text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
-                    {sess.rsvpCount} RSVPs
-                  </span>
-                </div>
-                <p className="text-xs font-bold text-white truncate">{sess.title}</p>
-                <p className="text-[10px] text-slate-400">{sess.speakerName} ({sess.track})</p>
+            {stats.topSessions.length === 0 ? (
+              <div className="p-8 text-center text-slate-500 text-xs font-mono">
+                No session data available.
               </div>
-            ))}
+            ) : (
+              stats.topSessions.slice(0, 5).map((sess) => (
+                <div
+                  key={sess.id}
+                  className="p-2.5 rounded-xl bg-slate-800/40 hover:bg-slate-800/80 border border-slate-800 space-y-1 transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-1 text-[10px]">
+                    <span className="text-slate-400 font-mono">{sess.time} • {sess.room}</span>
+                    <span className="font-mono font-bold text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                      {sess.rsvpCount} RSVPs
+                    </span>
+                  </div>
+                  <p className="text-xs font-bold text-white truncate">{sess.title}</p>
+                  <p className="text-[10px] text-slate-400">{sess.speakerName} ({sess.track})</p>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -433,23 +468,31 @@ export const AdminStatsSection: React.FC<AdminStatsSectionProps> = ({
           </div>
 
           <div className="space-y-2.5">
-            {stats.boothTraffic.map((booth) => (
-              <div
-                key={booth.id}
-                className="p-2.5 rounded-xl bg-slate-800/40 hover:bg-slate-800/80 border border-slate-800 flex items-center justify-between transition-colors"
-              >
-                <div className="min-w-0 pr-2">
-                  <p className="text-xs font-bold text-white truncate">{booth.name}</p>
-                  <p className="text-[10px] text-slate-400">{booth.location} • {booth.category}</p>
-                </div>
-                <div className="text-right shrink-0">
-                  <span className="font-mono font-bold text-xs text-blue-400">
-                    {booth.stampCount}
-                  </span>
-                  <span className="text-[9px] text-slate-500 block">stamps given</span>
-                </div>
+            {stats.boothTraffic.length === 0 ? (
+              <div className="p-8 text-center text-slate-500 text-xs font-mono">
+                No booth data available.
               </div>
-            ))}
+            ) : (
+              stats.boothTraffic.map((booth) => (
+                <div
+                  key={booth.id}
+                  className="p-2.5 rounded-xl bg-slate-800/40 hover:bg-slate-800/80 border border-slate-800 flex items-center justify-between transition-colors"
+                >
+                  <div className="min-w-0 pr-2">
+                    <p className="text-xs font-bold text-white truncate">{booth.name}</p>
+                    <p className="text-[10px] text-slate-400">{booth.location} • {booth.category}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="font-mono font-bold text-xs text-blue-400">
+                      {booth.stampCount}
+                    </span>
+                    <span className="text-[9px] text-slate-500 block">
+                      {booth.stampCount === 1 ? 'stamp given' : 'stamps given'}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
 
           {/* Networking Mode Ratio Indicator */}
@@ -459,8 +502,14 @@ export const AdminStatsSection: React.FC<AdminStatsSectionProps> = ({
               <span>{nfcPct}% NFC • {qrPct}% QR</span>
             </div>
             <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden flex">
-              <div className="h-full bg-blue-500" style={{ width: `${nfcPct}%` }} />
-              <div className="h-full bg-emerald-400" style={{ width: `${qrPct}%` }} />
+              {stats.totalConnections > 0 ? (
+                <>
+                  <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: `${nfcPct}%` }} />
+                  <div className="h-full bg-emerald-400 transition-all duration-500" style={{ width: `${qrPct}%` }} />
+                </>
+              ) : (
+                <div className="h-full bg-slate-700 w-full" />
+              )}
             </div>
           </div>
         </div>

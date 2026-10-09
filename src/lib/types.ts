@@ -2,7 +2,7 @@ export interface AttendeeTicket {
   id: string;
   email: string;
   fullName: string;
-  ticketType: 'VIP Attendee' | 'Standard Attendee' | 'Speaker' | 'Organizer' | 'Sponsor';
+  ticketType: 'VIP Attendee' | 'Standard Attendee' | 'Walk-in Attendee' | 'Speaker' | 'Organizer' | 'Sponsor' | 'Core Team';
   isCheckedIn: boolean;
   checkedInAt?: string;
   qrPayload: string;

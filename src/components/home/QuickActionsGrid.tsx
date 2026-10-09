@@ -6,6 +6,7 @@ interface QuickActionsGridProps {
   onOpenRewards: () => void;
   onOpenFaq: () => void;
   onOpenFriends: () => void;
+  isWalkIn?: boolean;
 }
 
 export const QuickActionsGrid: React.FC<QuickActionsGridProps> = ({
@@ -13,6 +14,7 @@ export const QuickActionsGrid: React.FC<QuickActionsGridProps> = ({
   onOpenRewards,
   onOpenFaq,
   onOpenFriends,
+  isWalkIn,
 }) => {
   return (
     <div className="grid grid-cols-4 gap-2 pt-1 pb-2 relative z-10 text-center">
@@ -30,8 +32,16 @@ export const QuickActionsGrid: React.FC<QuickActionsGridProps> = ({
         onClick={onOpenRewards}
         className="flex flex-col items-center gap-1 group cursor-pointer"
       >
-        <div className="w-13 h-13 rounded-full bg-[#2A6E3F]/80 text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform border border-white/10 active:scale-95">
+        <div className="w-13 h-13 rounded-full bg-[#2A6E3F]/80 text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform border border-white/10 active:scale-95 relative">
           <GiftIcon />
+          {isWalkIn && (
+            <div
+              className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center text-[10px] shadow-sm border border-black/20"
+              title="Rewards restricted for Walk-in passes"
+            >
+              🔒
+            </div>
+          )}
         </div>
         <span className="text-[11px] font-bold text-slate-900">Rewards</span>
       </button>

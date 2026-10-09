@@ -24,9 +24,10 @@ export const AdminOperationsSection: React.FC = () => {
   // --- WALK-IN WHITELIST STATE ---
   const [whitelist, setWhitelist] = useState<WhitelistItem[]>([]);
   const [newEmail, setNewEmail] = useState('');
-  const [newTicketType, setNewTicketType] = useState('Standard Attendee');
+  const [newTicketType, setNewTicketType] = useState('Walk-in Attendee');
   const [newNotes, setNewNotes] = useState('');
   const [whitelistSearch, setWhitelistSearch] = useState('');
+  const [whitelistTypeFilter, setWhitelistTypeFilter] = useState('ALL');
   const [whitelistFeedback, setWhitelistFeedback] = useState<string | null>(null);
   const [isSubmittingWhitelist, setIsSubmittingWhitelist] = useState(false);
 
@@ -179,15 +180,24 @@ export const AdminOperationsSection: React.FC = () => {
   };
 
   // Current active booth for QR generation
-  const activeBooth = booths.find((b) => b.id === selectedBoothId) || {
-    id: 'custom',
-    name: customBoothName || 'DevFest Partner Booth',
-    category: 'Sponsor & Partner',
-    location: customBoothLocation,
-    boothCode: customBoothCode || 'BOOTH-DEVFEST',
-    points: customBoothPoints,
-    description: 'Scan this QR code with the DevFest KL 2026 PWA to claim your booth stamp!',
-  };
+  const rawActiveBooth = booths.find((b) => b.id === selectedBoothId);
+  const activeBooth: Booth = rawActiveBooth
+    ? {
+        ...rawActiveBooth,
+        boothCode:
+          rawActiveBooth.boothCode ||
+          (rawActiveBooth as any).booth_code ||
+          'BOOTH-DEVFEST',
+      }
+    : {
+        id: 'custom',
+        name: customBoothName || 'DevFest Partner Booth',
+        category: 'Sponsor & Partner',
+        location: customBoothLocation,
+        boothCode: customBoothCode || 'BOOTH-DEVFEST',
+        points: customBoothPoints,
+        description: 'Scan this QR code with the DevFest KL 2026 PWA to claim your booth stamp!',
+      };
 
   const handlePrintPoster = () => {
     window.print();
@@ -423,6 +433,7 @@ export const AdminOperationsSection: React.FC = () => {
                   onChange={(e) => setNewTicketType(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-slate-950 text-xs text-white rounded-xl border border-slate-800 focus:outline-none focus:border-emerald-500 transition-colors"
                 >
+                  <option value="Walk-in Attendee">Walk-in Attendee (On-site Counter)</option>
                   <option value="Standard Attendee">Standard Attendee (Ticket2u / Peatix)</option>
                   <option value="VIP Attendee">VIP Attendee</option>
                   <option value="Speaker">Speaker</option>
@@ -463,7 +474,7 @@ export const AdminOperationsSection: React.FC = () => {
 
           {/* Whitelisted Attendees Table */}
           <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-lg">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
               <div>
                 <h4 className="text-sm font-bold text-white font-heading">
                   Whitelisted Attendees ({whitelist.length})
@@ -473,11 +484,42 @@ export const AdminOperationsSection: React.FC = () => {
 
               <input
                 type="text"
-                placeholder="Search email or ticket..."
+                placeholder="Search email, ticket, notes..."
                 value={whitelistSearch}
                 onChange={(e) => setWhitelistSearch(e.target.value)}
                 className="px-3 py-1.5 bg-slate-950 text-xs text-white rounded-lg border border-slate-800 max-w-[200px]"
               />
+            </div>
+
+            {/* Quick Category Filter Pills */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[
+                { id: 'ALL', label: 'All' },
+                { id: 'Walk-in Attendee', label: 'Walk-in' },
+                { id: 'Standard Attendee', label: 'Standard' },
+                { id: 'VIP Attendee', label: 'VIP' },
+                { id: 'Core Team', label: 'Core Team' },
+              ].map((tab) => {
+                const count =
+                  tab.id === 'ALL'
+                    ? whitelist.length
+                    : whitelist.filter((w) => w.ticket_type === tab.id).length;
+                const isSelected = whitelistTypeFilter === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setWhitelistTypeFilter(tab.id)}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold font-mono transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-emerald-500 text-slate-950 shadow-xs'
+                        : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                    }`}
+                  >
+                    {tab.label} ({count})
+                  </button>
+                );
+              })}
             </div>
 
             <div className="overflow-x-auto max-h-[420px] overflow-y-auto pr-1">
@@ -492,11 +534,18 @@ export const AdminOperationsSection: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
                   {whitelist
-                    .filter(
-                      (w) =>
-                        w.email.toLowerCase().includes(whitelistSearch.toLowerCase()) ||
-                        w.ticket_type.toLowerCase().includes(whitelistSearch.toLowerCase())
-                    )
+                    .filter((w) => {
+                      const matchesCategory =
+                        whitelistTypeFilter === 'ALL' || w.ticket_type === whitelistTypeFilter;
+                      const q = whitelistSearch.toLowerCase();
+                      const matchesSearch =
+                        !q ||
+                        w.email.toLowerCase().includes(q) ||
+                        w.ticket_type.toLowerCase().includes(q) ||
+                        (w.notes && w.notes.toLowerCase().includes(q)) ||
+                        (w.external_ref_id && w.external_ref_id.toLowerCase().includes(q));
+                      return matchesCategory && matchesSearch;
+                    })
                     .map((item) => (
                       <tr key={item.id} className="hover:bg-slate-800/40 transition-colors">
                         <td className="py-2.5 px-3 font-mono font-medium text-white">
@@ -511,6 +560,12 @@ export const AdminOperationsSection: React.FC = () => {
                                 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                                 : item.ticket_type === 'Speaker'
                                 ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                                : item.ticket_type === 'Walk-in Attendee'
+                                ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30'
+                                : item.ticket_type === 'Organizer'
+                                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                : item.ticket_type === 'Sponsor'
+                                ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
                                 : 'bg-slate-800 text-slate-300 border border-slate-700'
                             }`}
                           >

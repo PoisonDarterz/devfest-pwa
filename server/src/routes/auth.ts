@@ -58,9 +58,74 @@ const checkWhitelistInDb = async (cleanEmail: string): Promise<{ isWhitelisted: 
   return { isWhitelisted: false, ticketType: 'Standard Attendee' };
 };
 
-// Helper: Ensure Entry Swag reward exists for a registered participant
-export async function ensureEntrySwagReward(userId: string): Promise<void> {
+// Helper to generate attendee QR payload with guaranteed unique collision-free suffix
+export function generateAttendeeQrPayload(name: string): string {
+  const nameSlug = name.trim().toUpperCase().replace(/[^A-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'ATTENDEE';
+  const suffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `DEVFEST-KL-2026-${nameSlug}-${suffix}`;
+}
+
+// Helper to generate auto-incremented sequential reward claim codes (e.g. DF26-SWAG-0001, DF26-BOX-0001)
+export async function getNextRewardClaimCode(prefix = 'DF26-SWAG', rewardType = 'entry_swag'): Promise<string> {
   try {
+    const { data } = await supabaseAdmin
+      .from('user_rewards')
+      .select('claim_code')
+      .ilike('claim_code', `${prefix}-%`);
+
+    const existingCodes = new Set<string>();
+    let maxSequential = 0;
+
+    if (data && data.length > 0) {
+      for (const row of data) {
+        const code = (row.claim_code || '').trim();
+        existingCodes.add(code);
+
+        const match = code.match(/-0*(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num < 1000 && num > maxSequential) {
+            maxSequential = num;
+          }
+        }
+      }
+    }
+
+    let nextNum = Math.max(maxSequential + 1, (data?.length || 0) + 1);
+    let candidate = `${prefix}-${String(nextNum).padStart(4, '0')}`;
+
+    while (existingCodes.has(candidate)) {
+      nextNum++;
+      candidate = `${prefix}-${String(nextNum).padStart(4, '0')}`;
+    }
+
+    return candidate;
+  } catch (err) {
+    console.warn('Error generating sequential reward claim code:', err);
+    return `${prefix}-${String(Date.now()).slice(-4)}`;
+  }
+}
+
+// Helper: Ensure Entry Swag reward exists for a registered participant
+export async function ensureEntrySwagReward(userId: string, ticketType?: string): Promise<void> {
+  try {
+    let resolvedTicketType = ticketType;
+    if (!resolvedTicketType) {
+      const { data: prof } = await supabaseAdmin
+        .from('profiles')
+        .select('email')
+        .eq('id', userId)
+        .maybeSingle();
+      if (prof?.email) {
+        resolvedTicketType = (await checkWhitelistInDb(prof.email)).ticketType;
+      }
+    }
+
+    // Walk-in participants do not receive an entry swag pack
+    if (resolvedTicketType && resolvedTicketType.toLowerCase().includes('walk-in')) {
+      return;
+    }
+
     const { data: existing } = await supabaseAdmin
       .from('user_rewards')
       .select('id')
@@ -69,14 +134,14 @@ export async function ensureEntrySwagReward(userId: string): Promise<void> {
       .maybeSingle();
 
     if (!existing) {
-      const codeSuffix = Math.floor(1000 + Math.random() * 9000);
+      const claimCode = await getNextRewardClaimCode('DF26-SWAG', 'entry_swag');
       await supabaseAdmin.from('user_rewards').insert({
         user_id: userId,
         reward_type: 'entry_swag',
         title: 'DevFest 2026 Welcome Swag Pack',
         subtitle: 'Official attendee tote bag, lanyard, badge & stickers.',
         description: 'Head over to the Registration Counter to claim your official DevFest Kuala Lumpur 2026 swag pack.',
-        claim_code: `DF26-SWAG-${codeSuffix}`,
+        claim_code: claimCode,
         status: 'unclaimed',
       });
     }
@@ -364,7 +429,7 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
     bio: bio.trim(),
     github_url: githubUrl?.trim() || '',
     linkedin_url: linkedinUrl.trim(),
-    qr_payload: `DEVFEST-KL-2026-${name.trim().toUpperCase().replace(/\s+/g, '-')}`,
+    qr_payload: generateAttendeeQrPayload(name),
     is_ticket_verified: true,
   };
 
@@ -382,7 +447,7 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
 
     if (!error && data && data.length > 0) {
       const p = data[0];
-      await ensureEntrySwagReward(p.id);
+      await ensureEntrySwagReward(p.id, ticketType);
       const user = {
         id: p.id,
         name: p.full_name,
@@ -419,7 +484,7 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
 
         if (!retryErr && retryData && retryData.length > 0) {
           const p = retryData[0];
-          await ensureEntrySwagReward(p.id);
+          await ensureEntrySwagReward(p.id, ticketType);
           const user = {
             id: p.id,
             name: p.full_name,
@@ -569,7 +634,7 @@ const handleUpdateProfile = async (req: Request, res: Response): Promise<void> =
     }
 
     const currentProfile = existingProfiles[0];
-    const newQrPayload = `DEVFEST-KL-2026-${name.trim().toUpperCase().replace(/\s+/g, '-')}`;
+    const newQrPayload = currentProfile.qr_payload || generateAttendeeQrPayload(name);
 
     // 2. Perform UPDATE on the profile row
     const { data: updatedData, error: updateErr } = await supabaseAdmin

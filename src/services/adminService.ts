@@ -77,123 +77,122 @@ export const adminService = {
       ]);
 
       const profiles = profilesRes.data || [];
-      const totalUsers = profiles.length || 248; // Live count with realistic base
-      const checkedInUsers = profiles.filter((p) => p.is_checked_in).length || Math.floor(totalUsers * 0.78);
-      const totalWhitelisted = whitelistRes.count || Math.max(totalUsers + 52, 300);
+      const totalUsers = profiles.length;
+      const checkedInUsers = profiles.filter((p) => p.is_checked_in).length;
+      const totalWhitelisted = typeof whitelistRes.count === 'number' ? whitelistRes.count : (whitelistRes.data?.length || 0);
 
       const connections = connectionsRes.data || [];
-      const totalConnections = connections.length > 0 ? connections.length : 184;
 
-      const nfcConnections = connections.filter((c) => c.method === 'NFC Bump').length || Math.floor(totalConnections * 0.42);
-      const qrConnections = totalConnections - nfcConnections;
+      // Calculate unique pairs and method breakdown
+      const uniqueConnectionPairs = new Set<string>();
+      let nfcConnections = 0;
+      let qrConnections = 0;
 
-      // Calculate top networkers
-      const connectionCountMap = new Map<string, number>();
       connections.forEach((c) => {
-        connectionCountMap.set(c.user_id, (connectionCountMap.get(c.user_id) || 0) + 1);
-        connectionCountMap.set(c.friend_id, (connectionCountMap.get(c.friend_id) || 0) + 1);
+        if (c.user_id && c.friend_id) {
+          const pairKey = [c.user_id, c.friend_id].sort().join(':');
+          if (!uniqueConnectionPairs.has(pairKey)) {
+            uniqueConnectionPairs.add(pairKey);
+            if (c.method === 'NFC Bump') {
+              nfcConnections++;
+            } else {
+              qrConnections++;
+            }
+          }
+        }
+      });
+      const totalConnections = uniqueConnectionPairs.size;
+
+      // Calculate top networkers based on unique distinct contacts per user
+      const userFriendsMap = new Map<string, Set<string>>();
+      connections.forEach((c) => {
+        if (c.user_id && c.friend_id && c.user_id !== c.friend_id) {
+          if (!userFriendsMap.has(c.user_id)) userFriendsMap.set(c.user_id, new Set());
+          if (!userFriendsMap.has(c.friend_id)) userFriendsMap.set(c.friend_id, new Set());
+          userFriendsMap.get(c.user_id)!.add(c.friend_id);
+          userFriendsMap.get(c.friend_id)!.add(c.user_id);
+        }
       });
 
       const profileMap = new Map(profiles.map((p) => [p.id, p]));
-      let topNetworkers: NetworkerLeaderboardEntry[] = [];
+      const topNetworkers: NetworkerLeaderboardEntry[] = Array.from(userFriendsMap.entries())
+        .map(([userId, friendsSet]) => {
+          const p = profileMap.get(userId);
+          return {
+            id: userId,
+            name: p?.full_name || 'DevFest Attendee',
+            role: p?.company_role || 'Developer',
+            avatar: '',
+            connectionCount: friendsSet.size,
+            rank: 1,
+          };
+        })
+        .sort((a, b) => b.connectionCount - a.connectionCount)
+        .slice(0, 5)
+        .map((item, idx) => ({ ...item, rank: idx + 1 }));
 
-      if (connectionCountMap.size > 0) {
-        topNetworkers = Array.from(connectionCountMap.entries())
-          .map(([userId, count]) => {
-            const p = profileMap.get(userId);
-            return {
-              id: userId,
-              name: p ? p.full_name : 'DevFest Attendee',
-              role: p?.company_role || 'Developer',
-              avatar: '',
-              connectionCount: count,
-              rank: 1,
-            };
-          })
-          .sort((a, b) => b.connectionCount - a.connectionCount)
-          .slice(0, 5)
-          .map((item, idx) => ({ ...item, rank: idx + 1 }));
-      }
-
-      // Default demo leaderboard if live connections are still early in conference
-      if (topNetworkers.length === 0) {
-        topNetworkers = [
-          { id: '1', name: 'Zixu Cheah', role: 'Full Stack Engineer @ GDG KL', avatar: '', connectionCount: 28, rank: 1 },
-          { id: '2', name: 'Jonas Chuan', role: 'Mobile Lead @ Flutter MY', avatar: '', connectionCount: 24, rank: 2 },
-          { id: '3', name: 'Dr. Evelyn Carter', role: 'Staff AI Researcher @ DeepMind', avatar: '', connectionCount: 19, rank: 3 },
-          { id: '4', name: 'Kenji Sato', role: 'PWA Architect', avatar: '', connectionCount: 15, rank: 4 },
-          { id: '5', name: 'Elena Rostova', role: 'Cloud Platform Engineer', avatar: '', connectionCount: 12, rank: 5 },
-        ];
-      }
-
-      // Calculate stamp card completions (users with >= 4 booth stamps)
+      // Calculate stamp card completions (users with stamps for all registered booths)
+      const allBooths = boothsRes.data || [];
+      const totalBoothCount = allBooths.length || 4;
       const stamps = stampsRes.data || [];
       const userStampsMap = new Map<string, Set<string>>();
       stamps.forEach((s) => {
-        if (!userStampsMap.has(s.user_id)) {
-          userStampsMap.set(s.user_id, new Set());
+        if (s.user_id && s.booth_id) {
+          if (!userStampsMap.has(s.user_id)) {
+            userStampsMap.set(s.user_id, new Set());
+          }
+          userStampsMap.get(s.user_id)!.add(s.booth_id);
         }
-        userStampsMap.get(s.user_id)?.add(s.booth_id);
       });
 
       let completedStampCards = 0;
       userStampsMap.forEach((boothsSet) => {
-        if (boothsSet.size >= 4) completedStampCards++;
+        if (boothsSet.size >= totalBoothCount) {
+          completedStampCards++;
+        }
       });
-      if (completedStampCards === 0 && stamps.length === 0) {
-        completedStampCards = 47; // Realistic demonstration count
-      }
 
       // Calculate total RSVPs & top sessions
       const savedSessions = savedSessionsRes.data || [];
-      const totalRsvps = savedSessions.length > 0 ? savedSessions.length : 312;
+      const totalRsvps = savedSessions.length;
 
       const rsvpCountMap = new Map<string, number>();
       savedSessions.forEach((s) => {
-        rsvpCountMap.set(s.session_id, (rsvpCountMap.get(s.session_id) || 0) + 1);
+        if (s.session_id) {
+          rsvpCountMap.set(s.session_id, (rsvpCountMap.get(s.session_id) || 0) + 1);
+        }
       });
 
       const allSessions = sessionsRes.data || [];
-      const topSessions: SessionRsvpRank[] = (allSessions.length > 0
-        ? allSessions.map((s: any) => ({
-            id: s.id,
-            title: s.title,
-            track: s.track,
-            room: s.room,
-            time: s.time,
-            speakerName: s.speaker_name,
-            rsvpCount: rsvpCountMap.get(s.id) || Math.floor(Math.random() * 35 + 25),
-          }))
-        : [
-            { id: 's1', title: 'Advanced Fine-Tuning with Google Gemma', track: 'AI / ML', room: 'Main Auditorium', time: '12:30 PM', speakerName: 'Dr. Evelyn Carter', rsvpCount: 89 },
-            { id: 's2', title: 'Kubernetes Autoscale and Multi-Region Deployments', track: 'Cloud & DevOps', room: 'Hall A (Tech Stage)', time: '01:30 PM', speakerName: 'Marcus Chen', rsvpCount: 76 },
-            { id: 's3', title: 'Building Next-Gen PWAs with Vite and Workbox', track: 'Web & Chrome', room: 'Hall B (Web Stage)', time: '03:00 PM', speakerName: 'Kenji Sato', rsvpCount: 68 },
-            { id: 's4', title: 'Getting Started with MCP, ADK and A2A Architectures', track: 'AI / ML', room: 'Hall B (Web Stage)', time: '02:00 PM', speakerName: 'Jonas Tan', rsvpCount: 61 },
-          ]
-      ).sort((a, b) => b.rsvpCount - a.rsvpCount);
+      const topSessions: SessionRsvpRank[] = allSessions
+        .map((s: any) => ({
+          id: s.id,
+          title: s.title,
+          track: s.track,
+          room: s.room,
+          time: s.time,
+          speakerName: s.speaker_name,
+          rsvpCount: rsvpCountMap.get(s.id) || 0,
+        }))
+        .sort((a, b) => b.rsvpCount - a.rsvpCount);
 
-      // Calculate booth traffic
+      // Calculate booth stamp activity
       const boothStampsCountMap = new Map<string, number>();
       stamps.forEach((s) => {
-        boothStampsCountMap.set(s.booth_id, (boothStampsCountMap.get(s.booth_id) || 0) + 1);
+        if (s.booth_id) {
+          boothStampsCountMap.set(s.booth_id, (boothStampsCountMap.get(s.booth_id) || 0) + 1);
+        }
       });
 
-      const allBooths = boothsRes.data || [];
-      const boothTraffic: BoothTrafficStat[] = (allBooths.length > 0
-        ? allBooths.map((b: any) => ({
-            id: b.id,
-            name: b.name,
-            category: b.category,
-            location: b.location,
-            stampCount: boothStampsCountMap.get(b.id) || Math.floor(Math.random() * 60 + 40),
-          }))
-        : [
-            { id: 'b1', name: '42KL Sunway', category: 'Community', location: 'Hall A - #01', stampCount: 112 },
-            { id: 'b2', name: 'Google Cloud Malaysia', category: 'Platinum Sponsor', location: 'Hall A - #02', stampCount: 138 },
-            { id: 'b3', name: 'TensorFlow & Gemini AI', category: 'Gold Sponsor', location: 'Hall B - #10', stampCount: 124 },
-            { id: 'b4', name: 'Flutter Community MY', category: 'Community', location: 'Hall A - #04', stampCount: 96 },
-          ]
-      ).sort((a, b) => b.stampCount - a.stampCount);
+      const boothTraffic: BoothTrafficStat[] = allBooths
+        .map((b: any) => ({
+          id: b.id,
+          name: b.name,
+          category: b.category,
+          location: b.location,
+          stampCount: boothStampsCountMap.get(b.id) || 0,
+        }))
+        .sort((a, b) => b.stampCount - a.stampCount);
 
       return {
         totalUsers,
@@ -210,34 +209,19 @@ export const adminService = {
         lastUpdated: new Date().toLocaleTimeString(),
       };
     } catch (err) {
-      console.warn('Failed to compute live admin stats from database, using cached metrics:', err);
+      console.warn('Failed to compute live admin stats from database:', err);
       return {
-        totalUsers: 248,
-        checkedInUsers: 194,
-        totalWhitelisted: 300,
-        totalConnections: 184,
-        completedStampCards: 47,
-        totalRsvps: 312,
-        nfcConnectionsCount: 78,
-        qrConnectionsCount: 106,
-        topNetworkers: [
-          { id: '1', name: 'Zixu Cheah', role: 'Full Stack Engineer @ GDG KL', avatar: '', connectionCount: 28, rank: 1 },
-          { id: '2', name: 'Jonas Chuan', role: 'Mobile Lead @ Flutter MY', avatar: '', connectionCount: 24, rank: 2 },
-          { id: '3', name: 'Dr. Evelyn Carter', role: 'Staff AI Researcher @ DeepMind', avatar: '', connectionCount: 19, rank: 3 },
-          { id: '4', name: 'Kenji Sato', role: 'PWA Architect', avatar: '', connectionCount: 15, rank: 4 },
-          { id: '5', name: 'Elena Rostova', role: 'Cloud Platform Engineer', avatar: '', connectionCount: 12, rank: 5 },
-        ],
-        topSessions: [
-          { id: 's1', title: 'Advanced Fine-Tuning with Google Gemma', track: 'AI / ML', room: 'Main Auditorium', time: '12:30 PM', speakerName: 'Dr. Evelyn Carter', rsvpCount: 89 },
-          { id: 's2', title: 'Kubernetes Autoscale and Multi-Region Deployments', track: 'Cloud & DevOps', room: 'Hall A (Tech Stage)', time: '01:30 PM', speakerName: 'Marcus Chen', rsvpCount: 76 },
-          { id: 's3', title: 'Building Next-Gen PWAs with Vite and Workbox', track: 'Web & Chrome', room: 'Hall B (Web Stage)', time: '03:00 PM', speakerName: 'Kenji Sato', rsvpCount: 68 },
-        ],
-        boothTraffic: [
-          { id: 'b2', name: 'Google Cloud Malaysia', category: 'Platinum Sponsor', location: 'Hall A - #02', stampCount: 138 },
-          { id: 'b3', name: 'TensorFlow & Gemini AI', category: 'Gold Sponsor', location: 'Hall B - #10', stampCount: 124 },
-          { id: 'b1', name: '42KL Sunway', category: 'Community', location: 'Hall A - #01', stampCount: 112 },
-          { id: 'b4', name: 'Flutter Community MY', category: 'Community', location: 'Hall A - #04', stampCount: 96 },
-        ],
+        totalUsers: 0,
+        checkedInUsers: 0,
+        totalWhitelisted: 0,
+        totalConnections: 0,
+        completedStampCards: 0,
+        totalRsvps: 0,
+        nfcConnectionsCount: 0,
+        qrConnectionsCount: 0,
+        topNetworkers: [],
+        topSessions: [],
+        boothTraffic: [],
         lastUpdated: new Date().toLocaleTimeString(),
       };
     }
@@ -259,6 +243,7 @@ export const adminService = {
       { id: 'w1', email: 'zixu.cheah@devfest.kl', ticket_type: 'Core Team', external_ref_id: 'CORE-TEAM-01', notes: 'Core Team Lead' },
       { id: 'w2', email: 'jonas.chuan@devfest.kl', ticket_type: 'Core Team', external_ref_id: 'CORE-TEAM-02', notes: 'Core Team Organizer' },
       { id: 'w3', email: 'vip.guest@google.com', ticket_type: 'VIP Attendee', external_ref_id: 'VIP-GUEST-03', notes: 'Keynote VIP Speaker' },
+      { id: 'w4', email: 'walkin.attendee@gmail.com', ticket_type: 'Walk-in Attendee', external_ref_id: 'WALKIN-DEMO-04', notes: 'Walk-in Counter 1' },
     ];
   },
 
@@ -449,7 +434,19 @@ export const adminService = {
   async getBooths(): Promise<Booth[]> {
     try {
       const { data, error } = await supabase.from('booths').select('*').order('name');
-      if (!error && data && data.length > 0) return data as Booth[];
+      if (!error && data && data.length > 0) {
+        return data.map((b: any) => ({
+          id: b.id,
+          name: b.name,
+          category: b.category,
+          description: b.description || '',
+          boothCode: b.booth_code || b.boothCode || '',
+          logoText: b.logo_text || b.logoText || '',
+          logoUrl: b.logo_url || b.logoUrl || '',
+          points: b.points || 15,
+          location: b.location,
+        })) as Booth[];
+      }
     } catch (err) {
       console.warn('Failed to fetch booths:', err);
     }

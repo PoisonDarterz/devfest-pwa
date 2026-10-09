@@ -269,10 +269,18 @@ export const rewardsService = {
 
       if (userEmail) {
         const { data: user } = await supabase
-          .from('profiles')
-          .select('id')
+          .from('vw_profiles')
+          .select('id, ticket_type')
           .ilike('email', userEmail.trim().toLowerCase())
           .maybeSingle();
+
+        if (user?.ticket_type && user.ticket_type.toLowerCase().includes('walk-in')) {
+          return {
+            success: false,
+            stamps: currentStamps,
+            message: 'Passport stamps and rewards are exclusive to registered attendees. Walk-in passes do not include stamp access.',
+          };
+        }
 
         if (user?.id) {
           await supabase.from('user_stamps').insert({
@@ -342,26 +350,30 @@ export const rewardsService = {
       }
     }
 
-    try {
-      const { data, error } = await supabase.rpc('draw_blind_box_reward', {
-        p_user_id: userId,
-        p_required_stamps: requiredStamps,
-      });
+    const isUuid = !!userId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId.trim());
 
-      if (!error && data && data.length > 0) {
-        const result = data[0];
-        return {
-          success: result.success,
-          rewardId: result.reward_id,
-          title: result.title,
-          subtitle: result.subtitle,
-          rarity: result.rarity,
-          remainingQuantity: result.remaining_quantity,
-          message: result.message,
-        };
+    if (isUuid) {
+      try {
+        const { data, error } = await supabase.rpc('draw_blind_box_reward', {
+          p_user_id: userId,
+          p_required_stamps: requiredStamps,
+        });
+
+        if (!error && data && data.length > 0) {
+          const result = data[0];
+          return {
+            success: result.success,
+            rewardId: result.reward_id,
+            title: result.title,
+            subtitle: result.subtitle,
+            rarity: result.rarity,
+            remainingQuantity: result.remaining_quantity,
+            message: result.message,
+          };
+        }
+      } catch (err) {
+        console.error('Blind box draw failed on database:', err);
       }
-    } catch (err) {
-      console.error('Blind box draw failed on database:', err);
     }
 
     return {
@@ -396,14 +408,20 @@ export const rewardsService = {
 
     // Direct Supabase Fallback
     try {
-      let targetUserId = userId;
+      let targetUserId: string | null = null;
+      if (userId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId.trim())) {
+        targetUserId = userId.trim();
+      }
+
       if (!targetUserId && cleanEmail) {
         const { data: prof } = await supabase
           .from('profiles')
           .select('id')
           .ilike('email', cleanEmail)
           .maybeSingle();
-        targetUserId = prof?.id;
+        if (prof?.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(prof.id)) {
+          targetUserId = prof.id;
+        }
       }
 
       if (targetUserId) {
@@ -504,5 +522,177 @@ export const rewardsService = {
     }
 
     return { success: false, message: 'Failed to update reward status.' };
+  },
+
+  // Unlock Physical Blind Box Reward for a participant (all 9 choices grant the same physical box)
+  async unlockBlindBoxReward(
+    userId?: string,
+    userEmail?: string,
+    selectedBoxIndex = 0
+  ): Promise<{ success: boolean; reward?: UserRewardItem; message?: string }> {
+    const cleanEmail = userEmail?.trim().toLowerCase();
+
+    if (USE_NODE_BACKEND) {
+      try {
+        const res = await fetch(`${NODE_API_BASE_URL}/gacha/unlock-box`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ userId, email: cleanEmail, selectedBoxIndex }),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.reward) {
+            return { success: true, reward: json.reward };
+          }
+        }
+      } catch (err) {
+        console.warn('Node backend unlock-box failed, falling back to direct DB:', err);
+      }
+    }
+
+    // Direct Supabase Fallback
+    try {
+      let targetUserId: string | null = null;
+      if (userId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId.trim())) {
+        targetUserId = userId.trim();
+      }
+
+      if (!targetUserId && cleanEmail) {
+        const { data: prof } = await supabase
+          .from('vw_profiles')
+          .select('id, ticket_type')
+          .ilike('email', cleanEmail)
+          .maybeSingle();
+
+        if (prof?.ticket_type && prof.ticket_type.toLowerCase().includes('walk-in')) {
+          return {
+            success: false,
+            message: 'Rewards and mystery boxes are exclusive to registered attendees. Walk-in passes do not include reward access.',
+          };
+        }
+
+        if (prof?.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(prof.id)) {
+          targetUserId = prof.id;
+        }
+      }
+
+      if (!targetUserId) {
+        return {
+          success: true,
+          reward: {
+            id: `local-box-${Date.now()}`,
+            userId: 'local-user',
+            rewardType: 'blind_box',
+            title: 'DevFest 2026 Mystery Blind Box',
+            subtitle: `Official attendee blind box collectible (Box #${selectedBoxIndex + 1} chosen).`,
+            description: 'All 9 boxes grant the official DevFest KL 2026 Mystery Blind Box. Show this code to the Rewards Counter staff to receive your gift.',
+            claimCode: `DF26-BOX-0001`,
+            status: 'unclaimed',
+          },
+        };
+      }
+
+      const { data: existing } = await supabase
+        .from('user_rewards')
+        .select('*')
+        .eq('user_id', targetUserId)
+        .eq('reward_type', 'blind_box')
+        .maybeSingle();
+
+      if (existing) {
+        return {
+          success: true,
+          reward: {
+            id: existing.id,
+            userId: existing.user_id,
+            rewardType: existing.reward_type,
+            title: existing.title,
+            subtitle: existing.subtitle || '',
+            description: existing.description || '',
+            claimCode: existing.claim_code,
+            status: existing.status,
+            claimedAt: existing.claimed_at,
+            createdAt: existing.created_at,
+          },
+        };
+      }
+
+      // Auto-increment next claim code
+      const { data: allBoxes } = await supabase
+        .from('user_rewards')
+        .select('claim_code')
+        .ilike('claim_code', 'DF26-BOX-%');
+
+      const existingCodes = new Set<string>();
+      let maxSequential = 0;
+      if (allBoxes && allBoxes.length > 0) {
+        for (const row of allBoxes) {
+          const code = (row.claim_code || '').trim();
+          existingCodes.add(code);
+          const match = code.match(/-0*(\d+)$/);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (!isNaN(num) && num > maxSequential) {
+              maxSequential = num;
+            }
+          }
+        }
+      }
+
+      let nextNum = maxSequential + 1;
+      let claimCode = `DF26-BOX-${String(nextNum).padStart(4, '0')}`;
+      while (existingCodes.has(claimCode)) {
+        nextNum++;
+        claimCode = `DF26-BOX-${String(nextNum).padStart(4, '0')}`;
+      }
+
+      const { data: inserted, error } = await supabase
+        .from('user_rewards')
+        .insert({
+          user_id: targetUserId,
+          reward_type: 'blind_box',
+          title: 'DevFest 2026 Mystery Blind Box',
+          subtitle: `Official attendee blind box collectible (Box #${selectedBoxIndex + 1} chosen).`,
+          description: 'All 9 boxes grant the official DevFest KL 2026 Mystery Blind Box. Show this code to the Rewards Counter staff to receive your gift.',
+          claim_code: claimCode,
+          status: 'unclaimed',
+        })
+        .select()
+        .maybeSingle();
+
+      if (!error && inserted) {
+        return {
+          success: true,
+          reward: {
+            id: inserted.id,
+            userId: inserted.user_id,
+            rewardType: inserted.reward_type,
+            title: inserted.title,
+            subtitle: inserted.subtitle || '',
+            description: inserted.description || '',
+            claimCode: inserted.claim_code,
+            status: inserted.status,
+            claimedAt: inserted.claimed_at,
+            createdAt: inserted.created_at,
+          },
+        };
+      }
+    } catch (err) {
+      console.warn('Direct DB fallback failed for blind box unlock:', err);
+    }
+
+    return {
+      success: true,
+      reward: {
+        id: `fallback-box-${Date.now()}`,
+        userId: userId || 'fallback',
+        rewardType: 'blind_box',
+        title: 'DevFest 2026 Mystery Blind Box',
+        subtitle: `Official attendee blind box collectible (Box #${selectedBoxIndex + 1} chosen).`,
+        description: 'All 9 boxes grant the official DevFest KL 2026 Mystery Blind Box. Show this code to the Rewards Counter staff to receive your gift.',
+        claimCode: 'DF26-BOX-0001',
+        status: 'unclaimed',
+      },
+    };
   },
 };

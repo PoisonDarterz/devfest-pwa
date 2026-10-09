@@ -20,6 +20,7 @@ interface RewardsModuleProps {
     email?: string;
     name?: string;
     role?: string;
+    ticketType?: string;
   };
   onSelectReward?: (reward: RewardSelection) => void;
   onBackToHome: () => void;
@@ -81,6 +82,7 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
   const [isRevealing, setIsRevealing] = useState(false);
   const [wonPrize, setWonPrize] = useState(MYSTERY_PRIZES[0]);
   const [isStaffRedeemed, setIsStaffRedeemed] = useState(false);
+  const [physicalBoxReward, setPhysicalBoxReward] = useState<UserRewardItem | null>(null);
 
   // Participant Rewards State
   const [userRewards, setUserRewards] = useState<UserRewardItem[]>([]);
@@ -100,6 +102,13 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
     try {
       const rewards = await rewardsService.getUserRewards(userProfile.email, userProfile.id);
       setUserRewards(rewards);
+      const existingBlindBox = rewards.find((r) => r.rewardType === 'blind_box');
+      if (existingBlindBox) {
+        setPhysicalBoxReward(existingBlindBox);
+        if (existingBlindBox.status === 'claimed') {
+          setIsStaffRedeemed(true);
+        }
+      }
     } catch (err) {
       console.warn('Failed to load user rewards:', err);
     } finally {
@@ -162,28 +171,43 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
 
   // Staff claim for 10-stamp blind box with accidental contact confirmation
   const handlePromptBlindBoxStaffClaim = () => {
-    const title =
-      backendScenario === 'digital_gacha'
-        ? wonPrize.title
-        : `Blind Box #${(selectedBoxIndex ?? 0) + 1}`;
-    const code =
-      backendScenario === 'digital_gacha'
-        ? wonPrize.code
-        : `DF26-BOX-0${(selectedBoxIndex ?? 0) + 1}`;
+    const isGacha = backendScenario === 'digital_gacha';
+    const title = isGacha ? wonPrize.title : (physicalBoxReward?.title || 'DevFest 2026 Mystery Blind Box');
+    const code = isGacha ? wonPrize.code : (physicalBoxReward?.claimCode || 'DF26-BOX-0001');
 
     setConfirmModal({
       isOpen: true,
       rewardTitle: title,
       claimCode: code,
-      onConfirm: () => {
-        setIsStaffRedeemed(true);
-        setConfirmModal(null);
+      onConfirm: async () => {
+        if (!isGacha && physicalBoxReward?.id) {
+          setIsClaiming(true);
+          try {
+            const res = await rewardsService.claimUserReward(physicalBoxReward.id, userProfile?.email);
+            if (res.success) {
+              const nowIso = new Date().toISOString();
+              setPhysicalBoxReward((prev) => (prev ? { ...prev, status: 'claimed', claimedAt: nowIso } : null));
+              setUserRewards((prev) =>
+                prev.map((r) => (r.id === physicalBoxReward.id ? { ...r, status: 'claimed', claimedAt: nowIso } : r))
+              );
+              setIsStaffRedeemed(true);
+            }
+          } catch (err) {
+            console.error('Error claiming blind box reward:', err);
+          } finally {
+            setIsClaiming(false);
+            setConfirmModal(null);
+          }
+        } else {
+          setIsStaffRedeemed(true);
+          setConfirmModal(null);
+        }
       },
     });
   };
 
-  // Handle Box Selection Confirmation
-  const handleConfirmBoxSelection = () => {
+  // Handle Box Selection Confirmation (All 9 choices grant the same physical box)
+  const handleConfirmBoxSelection = async () => {
     if (selectedBoxIndex === null) return;
 
     if (backendScenario === 'digital_gacha') {
@@ -195,9 +219,111 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
         setView('redemption');
       }, 900);
     } else {
-      setView('redemption');
+      setIsRevealing(true);
+      try {
+        const res = await rewardsService.unlockBlindBoxReward(
+          userProfile?.id,
+          userProfile?.email,
+          selectedBoxIndex
+        );
+        if (res.success && res.reward) {
+          setPhysicalBoxReward(res.reward);
+          setUserRewards((prev) => {
+            const exists = prev.some((r) => r.id === res.reward!.id);
+            return exists ? prev.map((r) => (r.id === res.reward!.id ? res.reward! : r)) : [res.reward!, ...prev];
+          });
+          if (res.reward.status === 'claimed') {
+            setIsStaffRedeemed(true);
+          }
+        }
+      } catch (err) {
+        console.warn('Error unlocking physical blind box:', err);
+      } finally {
+        setIsRevealing(false);
+        setView('redemption');
+      }
     }
   };
+
+  const isWalkIn = (userProfile?.ticketType || '').toLowerCase().includes('walk-in');
+
+  if (isWalkIn) {
+    return (
+      <motion.div
+        key="rewards-walkin-restricted"
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.96 }}
+        transition={{ duration: 0.18 }}
+        className="flex flex-col grow overflow-y-auto scrollbar-none pt-4 pb-6 px-2 justify-between min-h-full items-center text-center select-none"
+      >
+        <div className="w-full max-w-sm mx-auto space-y-5 pt-4 my-auto">
+          {/* Main Card */}
+          <div className="bg-[#ECE6DA] text-slate-900 rounded-[36px] p-6 pt-7 shadow-2xl border-4 border-[#DED7C9] text-center space-y-4">
+            {/* Lock / Restricted Icon */}
+            <div className="w-16 h-16 rounded-3xl bg-amber-100 border-2 border-amber-300 flex items-center justify-center mx-auto shadow-md">
+              <svg className="w-8 h-8 text-amber-700" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+
+            <div className="space-y-1">
+              <span className="inline-block px-3 py-1 bg-amber-200/90 text-amber-900 border border-amber-300 text-[10px] font-mono font-black uppercase rounded-full tracking-wider">
+                Walk-in Attendee Pass
+              </span>
+              <h2 className="font-heading font-black text-2xl text-slate-950 tracking-tight leading-tight">
+                Stamp Card & Rewards Restricted
+              </h2>
+              <p className="font-serif italic font-medium text-xs text-slate-700 leading-relaxed px-1">
+                Booth passport stamps, entry swag packs, and blind box mystery rewards are exclusive to pre-registered ticketed attendees.
+              </p>
+            </div>
+
+            {/* Entitlement Breakdown */}
+            <div className="p-4 bg-[#E0D9CD] rounded-2xl border border-[#CDC5B6] text-left space-y-2.5">
+              <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-600">
+                Your Pass Inclusions
+              </p>
+              <ul className="text-xs space-y-1.5 font-medium text-slate-800">
+                <li className="flex items-center gap-2 text-emerald-800">
+                  <span className="w-4 h-4 rounded-full bg-emerald-200 text-emerald-900 flex items-center justify-center text-[10px] font-bold">✓</span>
+                  <span>Full Keynote & Breakout Tech Sessions</span>
+                </li>
+                <li className="flex items-center gap-2 text-emerald-800">
+                  <span className="w-4 h-4 rounded-full bg-emerald-200 text-emerald-900 flex items-center justify-center text-[10px] font-bold">✓</span>
+                  <span>Partner Exhibition Booth Exploration</span>
+                </li>
+                <li className="flex items-center gap-2 text-emerald-800">
+                  <span className="w-4 h-4 rounded-full bg-emerald-200 text-emerald-900 flex items-center justify-center text-[10px] font-bold">✓</span>
+                  <span>Attendee Networking & Friend Discovery</span>
+                </li>
+                <li className="flex items-center gap-2 text-rose-700 opacity-80">
+                  <span className="w-4 h-4 rounded-full bg-rose-200 text-rose-900 flex items-center justify-center text-[10px] font-bold">✕</span>
+                  <span>Official Welcome Swag Pack</span>
+                </li>
+                <li className="flex items-center gap-2 text-rose-700 opacity-80">
+                  <span className="w-4 h-4 rounded-full bg-rose-200 text-rose-900 flex items-center justify-center text-[10px] font-bold">✕</span>
+                  <span>Passport Stamp Collection & Blind Box</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Back to Home Button */}
+        <div className="pt-4 pb-2">
+          <button
+            type="button"
+            onClick={onBackToHome}
+            className="w-14 h-14 rounded-full bg-[#ECE6DA] hover:bg-[#DDD6C8] active:scale-95 text-slate-950 flex items-center justify-center shadow-xl transition-transform cursor-pointer border border-[#DED7C9]"
+            aria-label="Back to home"
+          >
+            <ArrowLeftIcon />
+          </button>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
@@ -354,7 +480,7 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
                         <div className="grow min-w-0 space-y-0.5">
                           <div className="flex items-center gap-1.5">
                             <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-blue-700 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200">
-                              {reward.rewardType === 'entry_swag' ? 'Entry Swag' : 'Event Perk'}
+                              {reward.rewardType === 'entry_swag' ? 'Entry Swag' : reward.rewardType === 'blind_box' ? 'Blind Box' : 'Event Perk'}
                             </span>
                             <span className="text-[10px] font-mono text-slate-500">
                               {reward.claimCode}
@@ -446,7 +572,7 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
                   Pick Your Blind Box!
                 </h3>
                 <p className="font-serif italic font-medium text-xs text-slate-600">
-                  You only get to choose one, obviously.
+                  Pick any box to reveal! All 9 choices grant the official DevFest KL 2026 physical blind box.
                 </p>
               </div>
 
@@ -635,21 +761,21 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
 
                 <div className="space-y-1">
                   <span className="text-[10px] font-mono font-bold tracking-widest text-blue-700 uppercase bg-blue-50 px-2.5 py-0.5 rounded-md border border-blue-200">
-                    Physical Blind Box Voucher
+                    Official Physical Blind Box
                   </span>
                   <h3 className="font-heading font-black text-2xl text-slate-950 tracking-tight">
-                    Box #{((selectedBoxIndex ?? 0) + 1)} Selected!
+                    Box #{((selectedBoxIndex ?? 0) + 1)} Picked!
                   </h3>
                   <p className="font-serif italic font-medium text-xs text-slate-700 leading-relaxed px-2">
-                    Show this screen to the Rewards Counter staff to receive your physical blind box.
+                    All 9 box choices award the official DevFest KL 2026 Mystery Blind Box. Show this voucher code to Rewards Counter staff to receive your physical gift.
                   </p>
                 </div>
 
                 {/* Voucher Code Box */}
                 <div className="p-4 bg-[#E0D9CD] rounded-2xl border border-[#CDC5B6] space-y-1">
                   <p className="text-[10px] text-slate-600 font-medium uppercase tracking-wider">Redemption Pass Code</p>
-                  <p className="text-lg font-mono font-black text-slate-950 tracking-wider">
-                    DF26-BOX-0{(selectedBoxIndex ?? 0) + 1}
+                  <p className="text-xl font-mono font-black text-slate-950 tracking-wider">
+                    {physicalBoxReward?.claimCode || 'DF26-BOX-0001'}
                   </p>
                   <p className="text-[10px] text-emerald-700 font-bold">
                     ● Active Live Voucher • 10 Stamps Verified

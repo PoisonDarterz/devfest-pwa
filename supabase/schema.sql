@@ -14,7 +14,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS public.ticketing_whitelists (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email TEXT UNIQUE NOT NULL,
-    ticket_type TEXT NOT NULL DEFAULT 'Standard Attendee', -- 'VIP Attendee', 'Standard Attendee', 'Speaker', 'Organizer', 'Sponsor'
+    ticket_type TEXT NOT NULL DEFAULT 'Standard Attendee', -- 'VIP Attendee', 'Standard Attendee', 'Walk-in Attendee', 'Speaker', 'Organizer', 'Sponsor', 'Core Team'
     external_ref_id TEXT, -- e.g. Ticket2u reference ID, Peatix order ID, or CSV row ID
     notes TEXT,
     created_at TIMESTAMPTZ DEFAULT now()
