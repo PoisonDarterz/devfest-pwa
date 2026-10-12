@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import redBowtie from '../../assets/red-bowtie.svg';
 import blueGift from '../../assets/blue-gift.svg';
 import greyGift from '../../assets/grey-gift.svg';
-import dinoSos from '../../assets/dino-sos.png';
 import { ArrowLeftIcon } from '../common/Icons';
 import { rewardsService, type UserRewardItem } from '../../services/rewardsService';
 
@@ -27,44 +26,6 @@ interface RewardsModuleProps {
   onClaimStampDemo?: (boothId: string) => void;
 }
 
-type BackendScenario = 'physical_box' | 'digital_gacha';
-
-// Sample Mystery Prizes for Scenario 2 (Backend Gacha Determination)
-const MYSTERY_PRIZES = [
-  {
-    id: 'prize-hoodie',
-    title: 'DevFest 2026 Dino Hoodie',
-    category: 'Legendary Apparel',
-    image: dinoSos,
-    description: 'Exclusive limited-edition embroidered DevFest Kuala Lumpur hoodie.',
-    code: 'DF26-HD-8841',
-  },
-  {
-    id: 'prize-tumbler',
-    title: 'Google Cloud Smart Tumbler',
-    category: 'Tech Merch',
-    image: blueGift,
-    description: 'Insulated stainless steel tumbler with temperature display.',
-    code: 'DF26-TB-3912',
-  },
-  {
-    id: 'prize-figurine',
-    title: 'Android Mascot Collectible',
-    category: 'Rare Collectible',
-    image: dinoSos,
-    description: 'Limited edition DevFest 2026 green chrome Android figurine.',
-    code: 'DF26-FIG-5120',
-  },
-  {
-    id: 'prize-pinset',
-    title: 'GDGKL Enamel Pin Set',
-    category: 'Accessory',
-    image: blueGift,
-    description: 'Set of 4 collector enamel pins celebrating Google Cloud & Android.',
-    code: 'DF26-PIN-9034',
-  },
-];
-
 export const RewardsModule: React.FC<RewardsModuleProps> = ({
   claimedStamps: initialClaimedStamps,
   userProfile,
@@ -78,9 +39,7 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
 
   const [view, setView] = useState<'stamp_progress' | 'box_picker' | 'redemption'>('stamp_progress');
   const [selectedBoxIndex, setSelectedBoxIndex] = useState<number | null>(null);
-  const [backendScenario, setBackendScenario] = useState<BackendScenario>('physical_box');
   const [isRevealing, setIsRevealing] = useState(false);
-  const [wonPrize, setWonPrize] = useState(MYSTERY_PRIZES[0]);
   const [isStaffRedeemed, setIsStaffRedeemed] = useState(false);
   const [physicalBoxReward, setPhysicalBoxReward] = useState<UserRewardItem | null>(null);
 
@@ -171,16 +130,15 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
 
   // Staff claim for 10-stamp blind box with accidental contact confirmation
   const handlePromptBlindBoxStaffClaim = () => {
-    const isGacha = backendScenario === 'digital_gacha';
-    const title = isGacha ? wonPrize.title : (physicalBoxReward?.title || 'DevFest 2026 Mystery Blind Box');
-    const code = isGacha ? wonPrize.code : (physicalBoxReward?.claimCode || 'DF26-BOX-0001');
+    const title = physicalBoxReward?.title || 'DevFest 2026 Mystery Blind Box';
+    const code = physicalBoxReward?.claimCode || 'DF26-BOX-0001';
 
     setConfirmModal({
       isOpen: true,
       rewardTitle: title,
       claimCode: code,
       onConfirm: async () => {
-        if (!isGacha && physicalBoxReward?.id) {
+        if (physicalBoxReward?.id) {
           setIsClaiming(true);
           try {
             const res = await rewardsService.claimUserReward(physicalBoxReward.id, userProfile?.email);
@@ -210,38 +168,28 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
   const handleConfirmBoxSelection = async () => {
     if (selectedBoxIndex === null) return;
 
-    if (backendScenario === 'digital_gacha') {
-      setIsRevealing(true);
-      const prize = MYSTERY_PRIZES[selectedBoxIndex % MYSTERY_PRIZES.length];
-      setWonPrize(prize);
-      setTimeout(() => {
-        setIsRevealing(false);
-        setView('redemption');
-      }, 900);
-    } else {
-      setIsRevealing(true);
-      try {
-        const res = await rewardsService.unlockBlindBoxReward(
-          userProfile?.id,
-          userProfile?.email,
-          selectedBoxIndex
-        );
-        if (res.success && res.reward) {
-          setPhysicalBoxReward(res.reward);
-          setUserRewards((prev) => {
-            const exists = prev.some((r) => r.id === res.reward!.id);
-            return exists ? prev.map((r) => (r.id === res.reward!.id ? res.reward! : r)) : [res.reward!, ...prev];
-          });
-          if (res.reward.status === 'claimed') {
-            setIsStaffRedeemed(true);
-          }
+    setIsRevealing(true);
+    try {
+      const res = await rewardsService.unlockBlindBoxReward(
+        userProfile?.id,
+        userProfile?.email,
+        selectedBoxIndex
+      );
+      if (res.success && res.reward) {
+        setPhysicalBoxReward(res.reward);
+        setUserRewards((prev) => {
+          const exists = prev.some((r) => r.id === res.reward!.id);
+          return exists ? prev.map((r) => (r.id === res.reward!.id ? res.reward! : r)) : [res.reward!, ...prev];
+        });
+        if (res.reward.status === 'claimed') {
+          setIsStaffRedeemed(true);
         }
-      } catch (err) {
-        console.warn('Error unlocking physical blind box:', err);
-      } finally {
-        setIsRevealing(false);
-        setView('redemption');
       }
+    } catch (err) {
+      console.warn('Error unlocking physical blind box:', err);
+    } finally {
+      setIsRevealing(false);
+      setView('redemption');
     }
   };
 
@@ -725,127 +673,52 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
             transition={{ duration: 0.2 }}
             className="w-full flex flex-col items-center justify-between grow space-y-5 pt-2 pb-2"
           >
-            {/* BACKEND SCENARIO SWITCHER */}
-            <div className="flex items-center gap-1.5 p-1 bg-slate-900 rounded-full border border-slate-800 text-[11px] text-slate-300">
-              <span className="px-2 text-slate-400 font-mono">Mode:</span>
-              <button
-                type="button"
-                onClick={() => setBackendScenario('physical_box')}
-                className={`px-3 py-1.5 rounded-full font-bold transition-all cursor-pointer ${
-                  backendScenario === 'physical_box'
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                1. Physical Box
-              </button>
-              <button
-                type="button"
-                onClick={() => setBackendScenario('digital_gacha')}
-                className={`px-3 py-1.5 rounded-full font-bold transition-all cursor-pointer ${
-                  backendScenario === 'digital_gacha'
-                    ? 'bg-purple-600 text-white shadow-xs'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                2. Digital Gacha
-              </button>
+            {/* OFFICIAL PHYSICAL BLIND BOX VOUCHER */}
+            <div className="bg-[#ECE6DA] text-slate-900 rounded-[36px] p-6 pt-7 shadow-2xl border-4 border-[#DED7C9] w-full max-w-sm mx-auto text-center space-y-4">
+              <div className="w-16 h-16 rounded-2xl bg-blue-100 border border-blue-300 flex items-center justify-center mx-auto shadow-sm">
+                <img src={blueGift} alt="Gift" className="w-9 h-9 object-contain" />
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-[10px] font-mono font-bold tracking-widest text-blue-700 uppercase bg-blue-50 px-2.5 py-0.5 rounded-md border border-blue-200">
+                  Official Physical Blind Box
+                </span>
+                <h3 className="font-heading font-black text-2xl text-slate-950 tracking-tight">
+                  Box #{((selectedBoxIndex ?? 0) + 1)} Picked!
+                </h3>
+                <p className="font-serif italic font-medium text-xs text-slate-700 leading-relaxed px-2">
+                  All 9 box choices award the official DevFest KL 2026 Mystery Blind Box. Show this voucher code to Rewards Counter staff to receive your physical gift.
+                </p>
+              </div>
+
+              {/* Voucher Code Box */}
+              <div className="p-4 bg-[#E0D9CD] rounded-2xl border border-[#CDC5B6] space-y-1">
+                <p className="text-[10px] text-slate-600 font-medium uppercase tracking-wider">Redemption Pass Code</p>
+                <p className="text-xl font-mono font-black text-slate-950 tracking-wider">
+                  {physicalBoxReward?.claimCode || 'DF26-BOX-0001'}
+                </p>
+                <p className="text-[10px] text-emerald-700 font-bold">
+                  ● Active Live Voucher • 10 Stamps Verified
+                </p>
+              </div>
+
+              {/* Counter Staff Action */}
+              <div className="pt-2">
+                {isStaffRedeemed ? (
+                  <div className="p-3.5 bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5">
+                    ✓ Claimed & Handed Out by Staff
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handlePromptBlindBoxStaffClaim}
+                    className="w-full py-3.5 px-4 bg-slate-950 hover:bg-slate-800 text-white font-heading font-extrabold text-xs rounded-xl transition-all cursor-pointer shadow-md active:scale-98"
+                  >
+                    Counter Staff: Tap to Mark Received
+                  </button>
+                )}
+              </div>
             </div>
-
-            {/* SCENARIO 1: PHYSICAL BLIND BOX VOUCHER */}
-            {backendScenario === 'physical_box' && (
-              <div className="bg-[#ECE6DA] text-slate-900 rounded-[36px] p-6 pt-7 shadow-2xl border-4 border-[#DED7C9] w-full max-w-sm mx-auto text-center space-y-4">
-                <div className="w-16 h-16 rounded-2xl bg-blue-100 border border-blue-300 flex items-center justify-center mx-auto shadow-sm">
-                  <img src={blueGift} alt="Gift" className="w-9 h-9 object-contain" />
-                </div>
-
-                <div className="space-y-1">
-                  <span className="text-[10px] font-mono font-bold tracking-widest text-blue-700 uppercase bg-blue-50 px-2.5 py-0.5 rounded-md border border-blue-200">
-                    Official Physical Blind Box
-                  </span>
-                  <h3 className="font-heading font-black text-2xl text-slate-950 tracking-tight">
-                    Box #{((selectedBoxIndex ?? 0) + 1)} Picked!
-                  </h3>
-                  <p className="font-serif italic font-medium text-xs text-slate-700 leading-relaxed px-2">
-                    All 9 box choices award the official DevFest KL 2026 Mystery Blind Box. Show this voucher code to Rewards Counter staff to receive your physical gift.
-                  </p>
-                </div>
-
-                {/* Voucher Code Box */}
-                <div className="p-4 bg-[#E0D9CD] rounded-2xl border border-[#CDC5B6] space-y-1">
-                  <p className="text-[10px] text-slate-600 font-medium uppercase tracking-wider">Redemption Pass Code</p>
-                  <p className="text-xl font-mono font-black text-slate-950 tracking-wider">
-                    {physicalBoxReward?.claimCode || 'DF26-BOX-0001'}
-                  </p>
-                  <p className="text-[10px] text-emerald-700 font-bold">
-                    ● Active Live Voucher • 10 Stamps Verified
-                  </p>
-                </div>
-
-                {/* Counter Staff Action */}
-                <div className="pt-2">
-                  {isStaffRedeemed ? (
-                    <div className="p-3.5 bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5">
-                      ✓ Claimed & Handed Out by Staff
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handlePromptBlindBoxStaffClaim}
-                      className="w-full py-3.5 px-4 bg-slate-950 hover:bg-slate-800 text-white font-heading font-extrabold text-xs rounded-xl transition-all cursor-pointer shadow-md active:scale-98"
-                    >
-                      Counter Staff: Tap to Mark Received
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* SCENARIO 2: DIGITAL GACHA DETERMINED REWARD */}
-            {backendScenario === 'digital_gacha' && (
-              <div className="bg-[#ECE6DA] text-slate-900 rounded-[36px] p-6 pt-7 shadow-2xl border-4 border-[#DED7C9] w-full max-w-sm mx-auto text-center space-y-4">
-                <div className="w-20 h-20 rounded-2xl bg-amber-100 border border-amber-300 flex items-center justify-center mx-auto shadow-sm overflow-hidden p-2">
-                  <img src={wonPrize.image} alt={wonPrize.title} className="w-full h-full object-contain" />
-                </div>
-
-                <div className="space-y-1">
-                  <span className="text-[10px] font-mono font-bold tracking-widest text-amber-700 uppercase bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-200">
-                    🎉 {wonPrize.category}
-                  </span>
-                  <h3 className="font-heading font-black text-xl text-slate-950 tracking-tight leading-tight">
-                    {wonPrize.title}
-                  </h3>
-                  <p className="text-xs text-slate-700 font-sans leading-relaxed px-1">
-                    {wonPrize.description}
-                  </p>
-                </div>
-
-                {/* Voucher Code Box */}
-                <div className="p-4 bg-[#E0D9CD] rounded-2xl border border-[#CDC5B6] space-y-1">
-                  <p className="text-[10px] text-slate-600 font-medium uppercase tracking-wider">Item Claim Code</p>
-                  <p className="text-base font-mono font-black text-slate-950 tracking-wider">
-                    {wonPrize.code}
-                  </p>
-                </div>
-
-                {/* Counter Staff Action */}
-                <div className="pt-2">
-                  {isStaffRedeemed ? (
-                    <div className="p-3.5 bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5">
-                      ✓ Gift Claimed & Handed Out
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handlePromptBlindBoxStaffClaim}
-                      className="w-full py-3.5 px-4 bg-slate-950 hover:bg-slate-800 text-white font-heading font-extrabold text-xs rounded-xl transition-all cursor-pointer shadow-md active:scale-98"
-                    >
-                      Counter Staff: Tap to Hand Out Prize
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
 
             {/* CIRCULAR BACK TO HOME BUTTON */}
             <div className="pt-4 pb-2">
