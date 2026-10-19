@@ -130,7 +130,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       const status = await ApiService.checkUserStatus(email.trim());
 
       if (!status.isWhitelisted) {
-        setErrorMessage(status.message || 'Email not found in ticketed whitelist.');
+        setErrorMessage(status.message || 'Email not found in ticketed whitelist. Please refer to the DevFest registration booth to check your registration details.');
         setIsLoading(false);
         return;
       }
@@ -233,7 +233,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     try {
       const status = await ApiService.checkUserStatus(email.trim());
       if (!status.isWhitelisted) {
-        setErrorMessage(status.message || 'Email is not in the ticketed whitelist.');
+        setErrorMessage(status.message || 'Email is not in the ticketed whitelist. Please refer to the DevFest registration booth to check your registration details.');
         setIsLoading(false);
         return;
       }

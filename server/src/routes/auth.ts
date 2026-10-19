@@ -174,7 +174,7 @@ authRouter.post('/validate-ticket', async (req: Request, res: Response): Promise
     res.json({
       isWhitelisted: false,
       ticketType: null,
-      message: 'Email not found in ticketed whitelist. Please use the email registered on Ticket2u / Peatix.',
+      message: 'Email not found in ticketed whitelist. Please use the email registered on Peatix, or refer to the DevFest registration booth to check your registration details.',
     });
   }
 });
@@ -199,7 +199,7 @@ authRouter.post('/check-status', async (req: Request, res: Response): Promise<vo
       hasProfile: false,
       profile: null,
       ticketType: 'Standard Attendee',
-      message: 'Email not found in ticketed whitelist. Please use the email registered on Ticket2u / Peatix.',
+      message: 'Email not found in ticketed whitelist. Please use the email registered on Peatix, or refer to the DevFest registration booth to check your registration details.',
     });
     return;
   }
@@ -355,7 +355,7 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
   if (!isWhitelisted) {
     res.status(403).json({
       success: false,
-      message: 'This email is not on the ticketed whitelist. Please use the email registered on Ticket2u or Peatix.',
+      message: 'This email is not on the ticketed whitelist. Please use the email registered on Peatix, or refer to the DevFest registration booth to check your registration details.',
     });
     return;
   }

@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { sendSystemNotificationDetailed } from '../lib/notifications';
-import type { Booth, FAQItem, AppNotification } from '../lib/types';
+import type { /* Booth, */ FAQItem, AppNotification } from '../lib/types';
 
 export interface WhitelistItem {
   id: string;
@@ -430,7 +430,8 @@ export const adminService = {
     }
   },
 
-  // 5. Booth Operations
+  // 5. Booth Operations (Booth QR Generation)
+  /*
   async getBooths(): Promise<Booth[]> {
     try {
       const { data, error } = await supabase.from('booths').select('*').order('name');
@@ -457,6 +458,7 @@ export const adminService = {
       { id: 'b4', name: 'TensorFlow & Gemini AI', category: 'Gold Sponsor', location: 'Hall B - #10', boothCode: 'BOOTH-GEMINI', points: 15, description: 'Fine-tuning models workshops' },
     ];
   },
+  */
 };
 
 export default adminService;

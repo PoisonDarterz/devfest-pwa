@@ -614,7 +614,7 @@ export const authService = {
         hasPassword: false,
         profile: null,
         ticketType: 'Standard Attendee',
-        message: 'Email not found in ticketed whitelist. Please use the email registered on Ticket2u / Peatix.',
+        message: 'Email not found in ticketed whitelist. Please use the email registered on Peatix, or refer to the DevFest registration booth to check your registration details.',
       };
     }
 
@@ -715,7 +715,7 @@ export const authService = {
     return {
       isWhitelisted: false,
       ticketType: 'Standard Attendee',
-      message: 'Email not found in ticketed list.',
+      message: 'Email not found in ticketed list. Please refer to the DevFest registration booth to check your registration details.',
     };
   },
 };

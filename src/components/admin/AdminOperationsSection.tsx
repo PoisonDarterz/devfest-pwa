@@ -1,18 +1,20 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
-import type { Booth, FAQItem, AppNotification } from '../../lib/types';
+import React, { useState, useEffect /*, useRef */ } from 'react';
+// import { QRCodeSVG } from 'qrcode.react';
+import type { /* Booth, */ FAQItem, AppNotification } from '../../lib/types';
 import type { WhitelistItem } from '../../services/adminService';
 import adminService from '../../services/adminService';
 import { faqService } from '../../services/faqService';
 import { notificationsService } from '../../services/notificationsService';
-import GdgKlLogo from '../common/GdgKlLogo';
+// import GdgKlLogo from '../common/GdgKlLogo';
 
-type OperationsTab = 'booth_qr' | 'whitelist' | 'broadcast' | 'faqs';
+// type OperationsTab = 'booth_qr' | 'whitelist' | 'broadcast' | 'faqs';
+type OperationsTab = /* 'booth_qr' | */ 'whitelist' | 'broadcast' | 'faqs';
 
 export const AdminOperationsSection: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<OperationsTab>('booth_qr');
+  // const [activeTab, setActiveTab] = useState<OperationsTab>('booth_qr');
+  const [activeTab, setActiveTab] = useState<OperationsTab>('whitelist');
 
-  // --- BOOTH QR GENERATOR STATE ---
+  /* --- BOOTH QR GENERATOR STATE ---
   const [booths, setBooths] = useState<Booth[]>([]);
   const [selectedBoothId, setSelectedBoothId] = useState<string>('b1');
   const [customBoothName, setCustomBoothName] = useState('');
@@ -20,6 +22,7 @@ export const AdminOperationsSection: React.FC = () => {
   const [customBoothLocation, setCustomBoothLocation] = useState('Hall A - Partner Booth');
   const [customBoothPoints, setCustomBoothPoints] = useState(15);
   const printableRef = useRef<HTMLDivElement>(null);
+  */
 
   // --- WALK-IN WHITELIST STATE ---
   const [whitelist, setWhitelist] = useState<WhitelistItem[]>([]);
@@ -53,13 +56,13 @@ export const AdminOperationsSection: React.FC = () => {
   // Initial Data Fetch
   useEffect(() => {
     async function loadData() {
-      const [fetchedBooths, fetchedWhitelist] = await Promise.all([
-        adminService.getBooths(),
+      const [/* fetchedBooths, */ fetchedWhitelist] = await Promise.all([
+        // adminService.getBooths(),
         adminService.getWhitelistedEmails(),
       ]);
-      setBooths(fetchedBooths);
+      // setBooths(fetchedBooths);
       setWhitelist(fetchedWhitelist);
-      if (fetchedBooths.length > 0) setSelectedBoothId(fetchedBooths[0].id);
+      // if (fetchedBooths.length > 0) setSelectedBoothId(fetchedBooths[0].id);
 
       // Fetch FAQs
       try {
@@ -179,6 +182,7 @@ export const AdminOperationsSection: React.FC = () => {
     }
   };
 
+  /*
   // Current active booth for QR generation
   const rawActiveBooth = booths.find((b) => b.id === selectedBoothId);
   const activeBooth: Booth = rawActiveBooth
@@ -202,13 +206,14 @@ export const AdminOperationsSection: React.FC = () => {
   const handlePrintPoster = () => {
     window.print();
   };
+  */
 
   return (
     <div className="space-y-6">
       {/* Subnavigation Tabs */}
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-3">
         {[
-          { id: 'booth_qr', label: '🎟️ Generate Booth QR', desc: 'Scan to claim stamp' },
+          // { id: 'booth_qr', label: '🎟️ Generate Booth QR', desc: 'Scan to claim stamp' },
           { id: 'whitelist', label: '📝 Walk-in Whitelist', desc: 'Add attendee tickets' },
           { id: 'broadcast', label: '📢 Broadcast Notifications', desc: 'Live announcements' },
           { id: 'faqs', label: '❓ Update Event FAQs', desc: 'Attendee helper info' },
@@ -231,11 +236,12 @@ export const AdminOperationsSection: React.FC = () => {
       </div>
 
       {/* ========================================================================= */}
-      {/* 1. BOOTH QR GENERATOR SECTION */}
+      {/* 1. BOOTH QR GENERATOR SECTION (COMMENTED OFF) */}
       {/* ========================================================================= */}
-      {activeTab === 'booth_qr' && (
+      {/*
+      (activeTab as any) === 'booth_qr' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Controls Form */}
+          // Controls Form
           <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-5 shadow-lg">
             <div>
               <h3 className="text-base font-bold text-white font-heading">
@@ -343,13 +349,13 @@ export const AdminOperationsSection: React.FC = () => {
             </div>
           </div>
 
-          {/* High-Resolution Printable Standee Card Preview */}
+          // High-Resolution Printable Standee Card Preview
           <div className="lg:col-span-7 flex flex-col items-center">
             <div
               ref={printableRef}
               className="w-full max-w-md bg-white text-slate-900 rounded-3xl p-8 border-4 border-slate-900 shadow-2xl space-y-6 text-center"
             >
-              {/* DevFest Header */}
+              // DevFest Header
               <div className="space-y-1">
                 <div className="flex justify-center mb-1">
                   <GdgKlLogo />
@@ -365,7 +371,7 @@ export const AdminOperationsSection: React.FC = () => {
                 </p>
               </div>
 
-              {/* Vector QR Code */}
+              // Vector QR Code
               <div className="bg-slate-50 p-6 rounded-3xl border-2 border-slate-200 inline-block mx-auto shadow-inner">
                 <QRCodeSVG
                   value={activeBooth.boothCode}
@@ -376,7 +382,7 @@ export const AdminOperationsSection: React.FC = () => {
                 />
               </div>
 
-              {/* Scan Callout */}
+              // Scan Callout
               <div className="space-y-2 bg-slate-100 p-4 rounded-2xl border border-slate-200">
                 <div className="flex items-center justify-center gap-1.5 font-extrabold text-sm text-slate-900">
                   <span>📱 Scan with DevFest App</span>
@@ -391,7 +397,8 @@ export const AdminOperationsSection: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
+      )
+      */}
 
       {/* ========================================================================= */}
       {/* 2. WALK-IN EMAIL WHITELIST SECTION */}
@@ -434,7 +441,7 @@ export const AdminOperationsSection: React.FC = () => {
                   className="w-full px-3.5 py-2.5 bg-slate-950 text-xs text-white rounded-xl border border-slate-800 focus:outline-none focus:border-emerald-500 transition-colors"
                 >
                   <option value="Walk-in Attendee">Walk-in Attendee (On-site Counter)</option>
-                  <option value="Standard Attendee">Standard Attendee (Ticket2u / Peatix)</option>
+                  <option value="Standard Attendee">Standard Attendee (Peatix)</option>
                   <option value="VIP Attendee">VIP Attendee</option>
                   <option value="Speaker">Speaker</option>
                   <option value="Sponsor">Sponsor</option>
