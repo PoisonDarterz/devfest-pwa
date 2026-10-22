@@ -199,3 +199,22 @@ notificationsRouter.get('/upcoming-reminders', async (c) => {
     return c.json({ message: 'Internal server error.', error: err?.message }, 500);
   }
 });
+
+// =============================================================================
+// 5. DELETE /api/notifications/:id - Delete a broadcast notification (Admin)
+// =============================================================================
+notificationsRouter.delete('/:id', async (c) => {
+  const supabaseAdmin = getSupabaseAdmin(c.env);
+  const id = c.req.param('id');
+
+  try {
+    const { error } = await supabaseAdmin.from('notifications').delete().eq('id', id);
+    if (error) {
+      return c.json({ success: false, message: error.message }, 500);
+    }
+    return c.json({ success: true, message: 'Notification deleted.' });
+  } catch (err: any) {
+    return c.json({ success: false, message: err?.message || 'Server error' }, 500);
+  }
+});
+

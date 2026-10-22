@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { supabase } from '../lib/supabase';
-import { requestNotificationPermission } from '../lib/notifications';
+import { requestNotificationPermission, sendSystemNotificationDetailed } from '../lib/notifications';
 import { ApiService } from '../services/apiService';
 import type { UserProfile } from '../services/apiService';
 import type { Session, Booth, FAQItem, AppNotification } from '../lib/types';
@@ -31,6 +31,8 @@ export const useConferenceData = ({
   const [sessions, setSessions] = useState<Session[]>([]);
   const [faqs, setFaqs] = useState<FAQItem[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const seenNotificationIdsRef = useRef<Set<string>>(new Set());
+  const initialNotifsLoadedRef = useRef<boolean>(false);
   const [userProfile, setUserProfile] = useState<UserProfile>({
     id: initialUser?.id || '',
     name: initialUser?.name || 'Zixu Cheah',
@@ -157,6 +159,8 @@ export const useConferenceData = ({
       }
       if (fetchedNotifs && fetchedNotifs.notifications) {
         setNotifications(fetchedNotifs.notifications);
+        fetchedNotifs.notifications.forEach((n) => seenNotificationIdsRef.current.add(n.id));
+        initialNotifsLoadedRef.current = true;
       }
       if (fetchedFriends && fetchedFriends.length > 0) {
         setFriendsList(fetchedFriends);
@@ -190,6 +194,75 @@ export const useConferenceData = ({
     }
     loadInitialData();
   }, [initialUser, userProfile.email]);
+
+  // Real-time & periodic sync for live broadcast notifications
+  useEffect(() => {
+    const activeEmail = initialUser?.email || userProfile.email;
+
+    const handleIncomingNotification = (incoming: AppNotification) => {
+      if (!incoming || !incoming.id) return;
+      if (seenNotificationIdsRef.current.has(incoming.id)) return;
+      seenNotificationIdsRef.current.add(incoming.id);
+
+      setNotifications((prev) => {
+        if (prev.some((n) => n.id === incoming.id)) return prev;
+        return [{ ...incoming, isRead: false }, ...prev];
+      });
+
+      if (initialNotifsLoadedRef.current) {
+        sendSystemNotificationDetailed(incoming.title || 'DevFest KL 2026', {
+          body: incoming.message || 'New conference announcement!',
+          icon: '/pwa-192x192.png',
+        }).catch(() => {});
+      }
+    };
+
+    const channel = supabase
+      .channel('devfest-live-notifications')
+      .on('broadcast', { event: 'new_notification' }, (payload) => {
+        if (payload?.payload) {
+          handleIncomingNotification(payload.payload as AppNotification);
+        }
+      })
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications' },
+        (payload) => {
+          const n = payload.new as any;
+          if (n && n.id) {
+            handleIncomingNotification({
+              id: n.id,
+              title: n.title,
+              message: n.message,
+              type: n.type || 'organizer_announcement',
+              targetTrack: n.target_track || 'All',
+              scheduledAt: n.scheduled_at || n.created_at,
+              createdAt: n.created_at,
+              isRead: false,
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await ApiService.getNotifications(activeEmail);
+        if (res && Array.isArray(res.notifications)) {
+          for (const n of res.notifications) {
+            if (!seenNotificationIdsRef.current.has(n.id)) {
+              handleIncomingNotification(n);
+            }
+          }
+        }
+      } catch {}
+    }, 15000);
+
+    return () => {
+      clearInterval(pollInterval);
+      supabase.removeChannel(channel);
+    };
+  }, [initialUser?.email, userProfile.email]);
 
   // Toggle saving/bookmarking a session with live backend persistence
   const handleToggleSaveSession = async (sessionId: string) => {

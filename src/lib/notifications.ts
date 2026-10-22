@@ -1,9 +1,9 @@
 /**
  * Utility helper to handle cross-platform Web & Mobile System Notifications.
- * 
+ *
  * Mobile Chrome (Android) forbids `new Notification()` in the window context
  * and strictly requires `ServiceWorkerRegistration.showNotification()`.
- * 
+ *
  * iOS (iPhone/iPad) requires the PWA to be installed to the Home Screen (iOS 16.4+)
  * and must use `ServiceWorkerRegistration.showNotification()`.
  */
@@ -118,24 +118,24 @@ export const getCachedServiceWorkerRegistration = (): ServiceWorkerRegistration 
 };
 
 /**
- * Safely resolves the active Service Worker registration without hanging indefinitely.
+ * Safely resolves an ACTIVE Service Worker registration without hanging indefinitely.
  */
 export const getActiveServiceWorkerRegistration = async (
-  timeoutMs = 1500
+  timeoutMs = 3000
 ): Promise<ServiceWorkerRegistration | null> => {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
     return null;
   }
 
-  // 1. Return cached registration if already established
-  if (cachedRegistration) {
+  // 1. Return cached registration if it already has an active worker
+  if (cachedRegistration && cachedRegistration.active) {
     return cachedRegistration;
   }
 
   // 2. Check current registration immediately
   try {
     const current = await navigator.serviceWorker.getRegistration();
-    if (current) {
+    if (current && current.active) {
       cachedRegistration = current;
       return current;
     }
@@ -147,7 +147,7 @@ export const getActiveServiceWorkerRegistration = async (
   try {
     const registrations = await navigator.serviceWorker.getRegistrations();
     if (registrations && registrations.length > 0) {
-      const activeReg = registrations.find((r) => r.active) || registrations[0];
+      const activeReg = registrations.find((r) => r.active);
       if (activeReg) {
         cachedRegistration = activeReg;
         return activeReg;
@@ -157,14 +157,25 @@ export const getActiveServiceWorkerRegistration = async (
     console.warn('[Notifications] getRegistrations check failed:', e);
   }
 
-  // 4. Race navigator.serviceWorker.ready with safety timeout
+  // 4. Ensure SW is registered before awaiting .ready
+  try {
+    const existing = await navigator.serviceWorker.getRegistration();
+    if (!existing) {
+      const swUrl = import.meta.env.DEV ? '/dev-sw.js?dev-sw' : '/sw.js';
+      await navigator.serviceWorker.register(swUrl, { scope: '/' });
+    }
+  } catch (e) {
+    console.warn('[Notifications] Explicit SW register attempt failed:', e);
+  }
+
+  // 5. Race navigator.serviceWorker.ready with safety timeout
   try {
     const readyPromise = navigator.serviceWorker.ready;
     const timeoutPromise = new Promise<null>((resolve) =>
       setTimeout(() => resolve(null), timeoutMs)
     );
     const reg = await Promise.race([readyPromise, timeoutPromise]);
-    if (reg) {
+    if (reg && reg.active) {
       cachedRegistration = reg;
       return reg;
     }
@@ -172,19 +183,7 @@ export const getActiveServiceWorkerRegistration = async (
     console.warn('[Notifications] serviceWorker.ready timed out or failed:', e);
   }
 
-  // 5. Fallback: attempt explicit registration with environment-aware path
-  try {
-    const swUrl = import.meta.env.DEV ? '/dev-sw.js?dev-sw' : '/sw.js';
-    const manual = await navigator.serviceWorker.register(swUrl, { scope: '/' });
-    if (manual) {
-      cachedRegistration = manual;
-      return manual;
-    }
-  } catch (e) {
-    console.warn('[Notifications] Explicit SW register fallback failed:', e);
-  }
-
-  return null;
+  return cachedRegistration;
 };
 
 /**
@@ -201,7 +200,7 @@ export const sendSystemNotificationDetailed = async (
       success: false,
       permission: 'unsupported',
       message: isIOS
-        ? 'iOS requires installing this app to Home Screen before notifications work.'
+        ? 'On iPhone/iPad, tap Share > "Add to Home Screen" and open the installed app to enable notifications.'
         : 'Notification API is unsupported on this browser.',
       error: 'NO_NOTIFICATION_API',
     };
@@ -219,13 +218,12 @@ export const sendSystemNotificationDetailed = async (
       permission: currentPerm,
       message:
         currentPerm === 'denied'
-          ? 'Notification permission is denied in browser settings.'
+          ? 'Notification permission is blocked in browser settings. Click the lock/tune icon in your address bar to allow Notifications.'
           : 'Notification permission was dismissed.',
       error: 'PERMISSION_NOT_GRANTED',
     };
   }
 
-  // Build fully qualified asset URLs for reliable background service worker fetching
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const defaultIcon = origin ? new URL('/pwa-192x192.png', origin).href : '/pwa-192x192.png';
   const iconUrl = options?.icon
@@ -239,44 +237,49 @@ export const sendSystemNotificationDetailed = async (
       : new URL(options.badge, origin).href
     : defaultIcon;
 
-  // Use unique tag to prevent Android/Chrome from collapsing/suppressing subsequent alerts
   const uniqueTag =
     options?.tag ||
     `devfest-alert-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
 
-  const notificationOptions: NotificationOptions = {
+  const swOptions: Record<string, any> = {
+    ...options,
+    body: options?.body || '',
     icon: iconUrl,
     badge: badgeUrl,
     tag: uniqueTag,
-    ...options,
   };
 
-  // WebKit iOS does not support vibration or requireInteraction
-  if (isIOS) {
-    delete (notificationOptions as any).vibrate;
-    delete (notificationOptions as any).requireInteraction;
+  if (isAndroid) {
+    swOptions.vibrate = [200, 100, 200];
   } else {
-    if (!(notificationOptions as any).vibrate) {
-      (notificationOptions as any).vibrate = [200, 100, 200];
-    }
+    delete swOptions.vibrate;
+    delete swOptions.requireInteraction;
   }
 
   // A. Mobile Platforms (Android Chrome & iOS PWA strictly require Service Worker)
   if (isAndroid || isIOS) {
     if ('serviceWorker' in navigator) {
       try {
-        const registration = await getActiveServiceWorkerRegistration(1500);
+        const registration = await getActiveServiceWorkerRegistration(3000);
         if (registration && typeof registration.showNotification === 'function') {
-          await registration.showNotification(title, notificationOptions as any);
+          try {
+            await registration.showNotification(title, swOptions);
+          } catch {
+            // Retry with minimal options if browser rejected extra fields
+            await registration.showNotification(title, {
+              body: options?.body || '',
+              tag: uniqueTag,
+            });
+          }
           return {
             success: true,
             channel: 'service-worker',
             permission: 'granted',
-            message: 'Notification sent successfully via Service Worker!',
+            message: 'Notification sent! Check your device notification drawer.',
           };
         }
       } catch (swErr: any) {
-        console.warn('[Notifications] ServiceWorker showNotification error:', swErr);
+        console.warn('[Notifications] Mobile ServiceWorker showNotification error:', swErr);
         return {
           success: false,
           channel: 'service-worker',
@@ -290,57 +293,57 @@ export const sendSystemNotificationDetailed = async (
     return {
       success: false,
       permission: 'granted',
-      message: 'Could not find an active Service Worker to display mobile notification.',
+      message: 'Service Worker is still initializing. Please wait 2 seconds and tap again.',
       error: 'NO_ACTIVE_SERVICE_WORKER',
     };
   }
 
-  // B. Desktop Platform: Fast-path service worker if already available, else instant window Notification
-  if ('serviceWorker' in navigator && cachedRegistration) {
-    try {
-      if (typeof cachedRegistration.showNotification === 'function') {
-        await cachedRegistration.showNotification(title, notificationOptions as any);
-        return {
-          success: true,
-          channel: 'service-worker',
-          permission: 'granted',
-          message: 'Notification sent successfully via Service Worker!',
-        };
-      }
-    } catch (e) {
-      console.warn('[Notifications] Cached SW showNotification failed on desktop, falling back:', e);
-    }
-  }
-
-  // Native desktop window Notification (instant, reliable, no SW timeout delay)
+  // B. Desktop Platform: Use native window Notification first (most reliable on macOS/Windows desktop browsers),
+  // and also fall back to Service Worker if window Notification throws.
   try {
-    new Notification(title, notificationOptions);
+    const windowNotifOptions: NotificationOptions = {
+      body: options?.body || '',
+      icon: iconUrl,
+      tag: uniqueTag,
+      data: options?.data,
+    };
+    const notif = new Notification(title, windowNotifOptions);
+    notif.onclick = () => {
+      window.focus();
+      notif.close();
+    };
     return {
       success: true,
       channel: 'window-notification',
       permission: 'granted',
-      message: 'Notification sent successfully via Desktop browser!',
+      message: 'Notification sent! (If not visible, check macOS/Windows Focus / Do Not Disturb & browser notification settings).',
     };
   } catch (err: any) {
-    console.warn('[Notifications] Window Notification constructor failed:', err);
-    // As last resort, try SW registration
+    console.warn('[Notifications] Window Notification constructor failed, trying Service Worker:', err);
     try {
-      const reg = await getActiveServiceWorkerRegistration(800);
+      const reg = await getActiveServiceWorkerRegistration(2000);
       if (reg && typeof reg.showNotification === 'function') {
-        await reg.showNotification(title, notificationOptions as any);
+        await reg.showNotification(title, swOptions);
         return {
           success: true,
           channel: 'service-worker',
           permission: 'granted',
-          message: 'Notification sent successfully via Service Worker fallback!',
+          message: 'Notification sent via Service Worker!',
         };
       }
-    } catch {}
+    } catch (swErr: any) {
+      return {
+        success: false,
+        permission: 'granted',
+        message: `Notification failed: ${swErr?.message || err?.message || err}`,
+        error: String(swErr?.message || err?.message || err),
+      };
+    }
 
     return {
       success: false,
       permission: 'granted',
-      message: `Notification constructor failed: ${err?.message || err}`,
+      message: `Notification failed: ${err?.message || err}`,
       error: String(err?.message || err),
     };
   }

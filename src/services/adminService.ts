@@ -410,58 +410,114 @@ export const adminService = {
       return { success: false, message: 'Title and message are required.' };
     }
 
-    try {
-      const { data, error } = await supabase
-        .from('notifications')
-        .insert({
-          title: title.trim(),
-          message: message.trim(),
-          type,
-          target_track: targetTrack,
-        })
-        .select()
-        .single();
+    let createdNotification: AppNotification | null = null;
 
-      // Trigger browser notification alert for open devices
-      sendSystemNotificationDetailed(title, {
-        body: message,
-        icon: '/pwa-192x192.png',
-      }).catch(() => {});
+    if (USE_NODE_BACKEND) {
+      try {
+        const res = await fetch(`${NODE_API_BASE_URL}/notifications`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: title.trim(),
+            message: message.trim(),
+            type,
+            targetTrack,
+          }),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.notification) {
+            const d = json.notification;
+            createdNotification = {
+              id: d.id,
+              title: d.title,
+              message: d.message,
+              type: d.type || type,
+              targetTrack: d.target_track || targetTrack,
+              createdAt: d.created_at || new Date().toISOString(),
+            };
+          }
+        }
+      } catch (err) {
+        console.warn('Worker backend broadcast notification failed, falling back to direct DB:', err);
+      }
+    }
 
-      if (!error && data) {
-        return {
-          success: true,
-          message: 'Broadcast notification dispatched successfully to all attendees!',
-          notification: {
+    if (!createdNotification) {
+      try {
+        const { data, error } = await supabase
+          .from('notifications')
+          .insert({
+            title: title.trim(),
+            message: message.trim(),
+            type,
+            target_track: targetTrack,
+          })
+          .select()
+          .single();
+
+        if (!error && data) {
+          createdNotification = {
             id: data.id,
             title: data.title,
             message: data.message,
             type: data.type,
             targetTrack: data.target_track,
             createdAt: data.created_at,
-          },
-        };
+          };
+        }
+      } catch (err: any) {
+        console.warn('Database broadcast notification failed:', err);
       }
-    } catch (err: any) {
-      console.warn('Database broadcast notification failed:', err);
     }
 
-    // Fallback local broadcast
+    // Trigger browser notification alert immediately on sender device
+    sendSystemNotificationDetailed(title.trim(), {
+      body: message.trim(),
+      icon: '/pwa-192x192.png',
+    }).catch(() => {});
+
+    const finalNotif: AppNotification = createdNotification || {
+      id: `local-${Date.now()}`,
+      title: title.trim(),
+      message: message.trim(),
+      type,
+      targetTrack,
+      createdAt: new Date().toISOString(),
+    };
+
+    // Push real-time broadcast over Supabase channel to all open attendee devices
+    try {
+      const ch = supabase.channel('devfest-live-notifications');
+      ch.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          ch.send({
+            type: 'broadcast',
+            event: 'new_notification',
+            payload: finalNotif,
+          }).finally(() => {
+            setTimeout(() => supabase.removeChannel(ch), 1500);
+          });
+        }
+      });
+    } catch {}
+
     return {
       success: true,
-      message: 'Notification sent to live attendee feed!',
-      notification: {
-        id: `local-${Date.now()}`,
-        title,
-        message,
-        type,
-        targetTrack,
-        createdAt: new Date().toISOString(),
-      },
+      message: 'Broadcast notification dispatched successfully to all attendees!',
+      notification: finalNotif,
     };
   },
 
   async deleteNotification(id: string): Promise<boolean> {
+    if (USE_NODE_BACKEND) {
+      try {
+        const res = await fetch(`${NODE_API_BASE_URL}/notifications/${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+        });
+        if (res.ok) return true;
+      } catch {}
+    }
     try {
       const { error } = await supabase.from('notifications').delete().eq('id', id);
       return !error;

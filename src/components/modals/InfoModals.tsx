@@ -349,6 +349,15 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
                 <div className="flex items-center gap-2">
                   <span className="text-sm">🔔</span>
                   <span className="font-bold text-white text-[11px]">Device Notifications</span>
+                  <span
+                    className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${
+                      notifStatus.isStandalonePWA
+                        ? 'bg-blue-500/15 text-blue-300 border-blue-500/30'
+                        : 'bg-slate-800 text-slate-400 border-slate-700'
+                    }`}
+                  >
+                    {notifStatus.isStandalonePWA ? 'Standalone PWA' : 'Browser Tab'}
+                  </span>
                 </div>
                 {notifStatus.permission === 'granted' ? (
                   <span className="text-emerald-400 font-bold text-[10px] bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
