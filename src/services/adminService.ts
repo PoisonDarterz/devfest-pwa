@@ -3,6 +3,7 @@ import { sendSystemNotificationDetailed } from '../lib/notifications';
 import type { /* Booth, */ FAQItem, AppNotification } from '../lib/types';
 import type { ParsedWhitelistRow } from '../lib/csvParser';
 import { USE_NODE_BACKEND, NODE_API_BASE_URL } from './apiConfig';
+import { notificationsService } from './notificationsService';
 
 export interface WhitelistItem {
   id: string;
@@ -412,34 +413,20 @@ export const adminService = {
 
     let createdNotification: AppNotification | null = null;
 
+    // 1. Dispatch via Backend Worker to trigger real Web Push (VAPID) to all registered devices
     if (USE_NODE_BACKEND) {
       try {
-        const res = await fetch(`${NODE_API_BASE_URL}/notifications`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: title.trim(),
-            message: message.trim(),
-            type,
-            targetTrack,
-          }),
+        const notif = await notificationsService.broadcastNotification({
+          title: title.trim(),
+          message: message.trim(),
+          type,
+          targetTrack,
         });
-        if (res.ok) {
-          const json = await res.json();
-          if (json.notification) {
-            const d = json.notification;
-            createdNotification = {
-              id: d.id,
-              title: d.title,
-              message: d.message,
-              type: d.type || type,
-              targetTrack: d.target_track || targetTrack,
-              createdAt: d.created_at || new Date().toISOString(),
-            };
-          }
+        if (notif) {
+          createdNotification = notif;
         }
       } catch (err) {
-        console.warn('Worker backend broadcast notification failed, falling back to direct DB:', err);
+        console.warn('Backend broadcast push failed, falling back to direct Supabase:', err);
       }
     }
 

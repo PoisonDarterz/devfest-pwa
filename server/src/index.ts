@@ -6,7 +6,7 @@ import { sessionsRouter } from './routes/sessions.js';
 import { boothsRouter } from './routes/booths.js';
 import { gachaRouter } from './routes/gacha.js';
 import { connectionsRouter } from './routes/connections.js';
-import { notificationsRouter } from './routes/notifications.js';
+import { notificationsRouter, checkAndDispatchSessionReminders } from './routes/notifications.js';
 
 dotenv.config();
 
@@ -35,4 +35,11 @@ app.use('/api/notifications', notificationsRouter);
 
 app.listen(PORT, () => {
   console.log(`🚀 DevFest KL 2026 Node Server running on http://localhost:${PORT}`);
+
+  // Background cron: automatically check every 30s and dispatch lockscreen Web Push for sessions starting soon
+  setInterval(() => {
+    checkAndDispatchSessionReminders().catch((err) => {
+      console.warn('[SessionReminders] Background checker error:', err);
+    });
+  }, 30000);
 });

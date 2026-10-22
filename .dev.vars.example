@@ -6,3 +6,6 @@ SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 ANNEXHUB_API_KEY=ahk_your_annexhub_api_key_here
 ANNEXHUB_EVENT_ID=your_annexhub_event_uuid_here
 JWT_SECRET=devfest-kl-2026-super-secret-jwt-key
+VAPID_PUBLIC_KEY=your-vapid-public-key
+VAPID_PRIVATE_KEY=your-vapid-private-key
+VAPID_SUBJECT=mailto:organizers@devfest.kl

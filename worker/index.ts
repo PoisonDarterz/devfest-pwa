@@ -5,7 +5,7 @@ import { sessionsRouter } from './routes/sessions';
 import { boothsRouter } from './routes/booths';
 import { gachaRouter } from './routes/gacha';
 import { connectionsRouter } from './routes/connections';
-import { notificationsRouter } from './routes/notifications';
+import { notificationsRouter, checkAndDispatchSessionReminders } from './routes/notifications';
 import type { Env } from './types';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -37,4 +37,13 @@ app.all('*', async (c) => {
   return c.json({ message: 'Not Found' }, 404);
 });
 
-export default app;
+export default {
+  fetch: app.fetch,
+  async scheduled(_event: any, env: Env, ctx: any) {
+    if (ctx && typeof ctx.waitUntil === 'function') {
+      ctx.waitUntil(checkAndDispatchSessionReminders(env));
+    } else {
+      await checkAndDispatchSessionReminders(env);
+    }
+  },
+};
