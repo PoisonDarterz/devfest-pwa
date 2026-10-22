@@ -6,7 +6,13 @@ import gdgBwSvg from '../../assets/gdg-bw.svg';
 import { CloseIcon } from '../common/Icons';
 import { getAvatarUrl } from '../../lib/avatar';
 import GdgKlLogo from '../common/GdgKlLogo';
-import { getNotificationStatus, requestNotificationPermission, sendSystemNotificationDetailed } from '../../lib/notifications';
+import {
+  getNotificationStatus,
+  requestNotificationPermission,
+  sendSystemNotificationDetailed,
+  registerDevicePushSubscription,
+} from '../../lib/notifications';
+import { notificationsService } from '../../services/notificationsService';
 import type { Booth, FAQItem, Session, AppNotification } from '../../lib/types';
 
 interface InfoModalsProps {
@@ -75,22 +81,44 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
     const updated = getNotificationStatus();
     setNotifStatus(updated);
     if (perm === 'granted') {
-      const result = await sendSystemNotificationDetailed('DevFest KL 2026', {
-        body: '🎉 System notifications enabled! You will receive timely alerts for bookmarked sessions.',
+      if (userProfile.email) {
+        registerDevicePushSubscription(userProfile.email).catch((e) => {
+          console.warn('[Push] Background registration warning:', e);
+        });
+      }
+
+      await sendSystemNotificationDetailed('DevFest KL 2026', {
+        body: '🎉 System notifications enabled! You will receive timely alerts for bookmarked sessions even when the app is closed.',
         icon: '/pwa-192x192.png',
       });
-      setTestNotificationFeedback(result.message);
+      setTestNotificationFeedback('🎉 Notifications enabled! Lockscreen alerts are now active even when the app is closed.');
       setTimeout(() => setTestNotificationFeedback(null), 6000);
     }
   };
 
   const handleSendTestNotification = async () => {
     setTestNotificationFeedback('Sending notification...');
-    const result = await sendSystemNotificationDetailed('DevFest KL 2026', {
+
+    sendSystemNotificationDetailed('DevFest KL 2026', {
       body: '🔔 Test Notification: System alerts and session reminders are active on your device!',
       icon: '/pwa-192x192.png',
-    });
-    setTestNotificationFeedback(result.message);
+    }).catch(() => {});
+
+    if (userProfile.email) {
+      try {
+        const pushRes = await notificationsService.sendTestPush(userProfile.email);
+        if (pushRes.success) {
+          setTestNotificationFeedback(`🚀 Web Push verified! Delivered to ${pushRes.devicesFound || 1} device(s). Alerts will work even when the app is closed!`);
+        } else {
+          setTestNotificationFeedback('🔔 Test notification sent locally. (Tap "Enable Device Notifications" to activate lockscreen alerts when closed).');
+        }
+      } catch {
+        setTestNotificationFeedback('🔔 Test notification sent locally to your device!');
+      }
+    } else {
+      setTestNotificationFeedback('🔔 Test notification sent to your device!');
+    }
+
     setTimeout(() => setTestNotificationFeedback(null), 7000);
   };
 

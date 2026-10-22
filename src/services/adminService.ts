@@ -3,6 +3,7 @@ import { sendSystemNotificationDetailed } from '../lib/notifications';
 import type { /* Booth, */ FAQItem, AppNotification } from '../lib/types';
 import type { ParsedWhitelistRow } from '../lib/csvParser';
 import { USE_NODE_BACKEND, NODE_API_BASE_URL } from './apiConfig';
+import { notificationsService } from './notificationsService';
 
 export interface WhitelistItem {
   id: string;
@@ -408,6 +409,27 @@ export const adminService = {
   ): Promise<{ success: boolean; message: string; notification?: AppNotification }> {
     if (!title.trim() || !message.trim()) {
       return { success: false, message: 'Title and message are required.' };
+    }
+
+    // 1. Dispatch via Node Backend to trigger real Web Push to all registered devices
+    if (USE_NODE_BACKEND) {
+      try {
+        const notif = await notificationsService.broadcastNotification({
+          title: title.trim(),
+          message: message.trim(),
+          type,
+          targetTrack,
+        });
+        if (notif) {
+          return {
+            success: true,
+            message: 'Broadcast notification dispatched and pushed to all attendee devices via Web Push!',
+            notification: notif,
+          };
+        }
+      } catch (err) {
+        console.warn('Backend broadcast push failed, falling back to direct Supabase:', err);
+      }
     }
 
     try {

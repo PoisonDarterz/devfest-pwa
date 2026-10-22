@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { supabase } from '../lib/supabase';
-import { requestNotificationPermission } from '../lib/notifications';
+import { requestNotificationPermission, registerDevicePushSubscription } from '../lib/notifications';
 import { ApiService } from '../services/apiService';
 import type { UserProfile } from '../services/apiService';
 import type { Session, Booth, FAQItem, AppNotification } from '../lib/types';
@@ -176,6 +176,13 @@ export const useConferenceData = ({
         }
       }
       setIsFriendsLoading(false);
+
+      // Automatically register/sync device for background Web Push if permission is granted
+      if (activeEmail && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+        registerDevicePushSubscription(activeEmail).catch((err) => {
+          console.warn('[Push] Auto registration notice:', err);
+        });
+      }
       if (fetchedFriend) {
         setDiscoveredFriend({
           name: fetchedFriend.name,

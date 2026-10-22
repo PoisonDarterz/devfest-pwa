@@ -8,6 +8,8 @@
  * and must use `ServiceWorkerRegistration.showNotification()`.
  */
 
+import { notificationsService } from '../services/notificationsService';
+
 export interface NotificationStatus {
   isSupported: boolean;
   permission: NotificationPermission | 'unsupported';
@@ -356,3 +358,75 @@ export const sendSystemNotification = async (
   const result = await sendSystemNotificationDetailed(title, options);
   return result.success;
 };
+
+
+/**
+ * Converts a base64 string to Uint8Array for applicationServerKey in pushManager.subscribe
+ */
+export function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+/**
+ * Registers device with the browser's PushManager and syncs subscription with backend.
+ * Ensures notifications can wake up device even when PWA is closed.
+ */
+export async function registerDevicePushSubscription(
+  userEmail: string
+): Promise<{ success: boolean; message: string; subscription?: PushSubscription }> {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+    return {
+      success: false,
+      message: 'PushManager is not supported on this browser engine.',
+    };
+  }
+
+  try {
+    const reg = await getActiveServiceWorkerRegistration(2500);
+    if (!reg) {
+      return {
+        success: false,
+        message: 'Active Service Worker not ready. Please refresh or install PWA.',
+      };
+    }
+
+    const publicKey = await notificationsService.getVapidPublicKey();
+    if (!publicKey) {
+      return { success: false, message: 'Could not resolve VAPID public key.' };
+    }
+
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+    }
+
+    if (sub) {
+      const ok = await notificationsService.registerPushSubscription(userEmail, sub.toJSON());
+      return {
+        success: ok,
+        message: ok
+          ? 'Device push subscription registered! Lockscreen alerts enabled even when closed.'
+          : 'Could not sync push subscription with backend.',
+        subscription: sub,
+      };
+    }
+
+    return { success: false, message: 'Failed to create push subscription.' };
+  } catch (err: any) {
+    console.warn('[Notifications] Error in registerDevicePushSubscription:', err);
+    return {
+      success: false,
+      message: `Push registration failed: ${err?.message || err}`,
+    };
+  }
+}

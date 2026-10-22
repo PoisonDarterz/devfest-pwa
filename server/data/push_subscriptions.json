@@ -1,0 +1,11 @@
+[
+  {
+    "id": "sub_1792680027234_4xeyz",
+    "user_email": "jc.chuan.0303@gmail.com",
+    "endpoint": "https://fcm.googleapis.com/fcm/send/f7VIMRgP6EI:APA91bFOppSa-A4JobM1Br_7MLDtbIIJNSBM1I4C49QTKMzeMjIP8xBZAXgiq3unJnnYwcksGGVLQO1xvzXDLVPwooNldbMvHxyItSm3f5IvILBf4oZr-yA1AnIbsUDJ8xKK0srK4Pk-",
+    "p256dh": "BFEUgtrcsq6X4QgwahSFPImek3_ncJPGzusp0efC-0Z-eVkrws-FZCZbw3AlXQ3YKd-gSxxDgau9c2QKylyC4Hw",
+    "auth": "a29aCZfxF_6_uw_x884Bug",
+    "user_agent": "Mozilla/5.0 (Linux; Android 16; Pixel 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Mobile Safari/537.36",
+    "created_at": "2026-10-22T14:40:27.234Z"
+  }
+]
