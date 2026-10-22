@@ -1,5 +1,5 @@
 export const USE_NODE_BACKEND = import.meta.env.VITE_USE_NODE_BACKEND !== 'false';
-export const NODE_API_BASE_URL = import.meta.env.VITE_NODE_API_URL || 'http://localhost:5000/api';
+export const NODE_API_BASE_URL = import.meta.env.VITE_NODE_API_URL || '/api';
 
 export interface RewardItem {
   id: string;

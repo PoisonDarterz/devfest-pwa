@@ -1,0 +1,8 @@
+# Cloudflare Workers Local Secrets (.dev.vars)
+# Copy this file to .dev.vars for local `wrangler dev`.
+# For production, set secrets via `npx wrangler secret put <KEY>`
+SUPABASE_URL=https://your-supabase-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+ANNEXHUB_API_KEY=ahk_your_annexhub_api_key_here
+ANNEXHUB_EVENT_ID=your_annexhub_event_uuid_here
+JWT_SECRET=devfest-kl-2026-super-secret-jwt-key

@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "devfest-kl-2026-pwa",
+  "main": "worker/index.ts",
+  "compatibility_date": "2025-03-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "vars": {
+    "SUPABASE_URL": "https://vjbdlxybbcoaahfgxlbo.supabase.co",
+    "ANNEXHUB_EVENT_ID": "fd24cc93-87f5-4d76-b4b9-c94bac6390b6"
+  }
+}
