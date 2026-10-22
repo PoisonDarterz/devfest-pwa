@@ -23,7 +23,40 @@ const generateToken = (user: { id: string; email: string; name: string; role?: s
 };
 
 // Helper to check if email is on the ticketed whitelist
-const checkWhitelistInDb = async (cleanEmail: string): Promise<{ isWhitelisted: boolean; ticketType: string; externalRefId?: string }> => {
+const checkWhitelistInDb = async (
+  cleanEmail: string
+): Promise<{
+  isWhitelisted: boolean;
+  ticketType: string;
+  externalRefId?: string;
+  qrPayload?: string;
+  fullName?: string;
+  jobTitle?: string;
+  company?: string;
+}> => {
+  try {
+    const { data: directWl, error: directErr } = await supabaseAdmin
+      .from('ticketing_whitelists')
+      .select('*')
+      .ilike('email', cleanEmail)
+      .limit(1);
+
+    if (!directErr && directWl && directWl.length > 0) {
+      const row = directWl[0];
+      return {
+        isWhitelisted: true,
+        ticketType: row.ticket_type || 'Standard Attendee',
+        externalRefId: row.external_ref_id,
+        qrPayload: row.qr_payload,
+        fullName: row.full_name,
+        jobTitle: row.job_title,
+        company: row.company,
+      };
+    }
+  } catch (err) {
+    console.warn('Direct ticketing_whitelists check error:', err);
+  }
+
   try {
     const { data: rpcData, error: rpcErr } = await supabaseAdmin.rpc('validate_registration_email', { user_email: cleanEmail });
     if (!rpcErr && rpcData && rpcData.length > 0 && rpcData[0].is_whitelisted) {
@@ -35,24 +68,6 @@ const checkWhitelistInDb = async (cleanEmail: string): Promise<{ isWhitelisted: 
     }
   } catch (err) {
     console.warn('RPC validate_registration_email error:', err);
-  }
-
-  try {
-    const { data: directWl, error: directErr } = await supabaseAdmin
-      .from('ticketing_whitelists')
-      .select('*')
-      .eq('email', cleanEmail)
-      .limit(1);
-
-    if (!directErr && directWl && directWl.length > 0) {
-      return {
-        isWhitelisted: true,
-        ticketType: directWl[0].ticket_type || 'Standard Attendee',
-        externalRefId: directWl[0].external_ref_id,
-      };
-    }
-  } catch (err) {
-    console.warn('Direct ticketing_whitelists check error:', err);
   }
 
   return { isWhitelisted: false, ticketType: 'Standard Attendee' };
@@ -191,15 +206,15 @@ authRouter.post('/check-status', async (req: Request, res: Response): Promise<vo
   }
 
   const cleanEmail = email.trim().toLowerCase();
-  const { isWhitelisted, ticketType } = await checkWhitelistInDb(cleanEmail);
+  const wl = await checkWhitelistInDb(cleanEmail);
 
-  if (!isWhitelisted) {
+  if (!wl.isWhitelisted) {
     res.json({
       isWhitelisted: false,
       hasProfile: false,
       profile: null,
       ticketType: 'Standard Attendee',
-      message: 'Email not found in ticketed whitelist. Please use the email registered on Peatix, or refer to the DevFest registration booth to check your registration details.',
+      message: 'Email not found in ticketed whitelist. Please use the email registered on Luma, or refer to the DevFest registration booth to check your registration details.',
     });
     return;
   }
@@ -228,10 +243,10 @@ authRouter.post('/check-status', async (req: Request, res: Response): Promise<vo
           bio: p.bio || '',
           githubUrl: p.github_url || '',
           linkedinUrl: p.linkedin_url || '',
-          qrPayload: p.qr_payload || '',
-          ticketType: ticketType || 'Standard Attendee',
+          qrPayload: p.qr_payload || wl.qrPayload || '',
+          ticketType: wl.ticketType || 'Standard Attendee',
         },
-        ticketType: ticketType || 'Standard Attendee',
+        ticketType: wl.ticketType || 'Standard Attendee',
         message: 'User profile found in database!',
       });
       return;
@@ -241,12 +256,23 @@ authRouter.post('/check-status', async (req: Request, res: Response): Promise<vo
   }
 
   // Whitelisted but profile is NOT registered yet in database
+  const prefillRole = wl.jobTitle ? (wl.company ? `${wl.jobTitle} @ ${wl.company}` : wl.jobTitle) : (wl.company || '');
+
   res.json({
     isWhitelisted: true,
     hasProfile: false,
     hasPassword: false,
     profile: null,
-    ticketType,
+    ticketType: wl.ticketType,
+    prefill: {
+      name: wl.fullName || '',
+      role: prefillRole,
+      jobTitle: wl.jobTitle || '',
+      company: wl.company || '',
+      ticketType: wl.ticketType,
+      qrPayload: wl.qrPayload || '',
+      externalRefId: wl.externalRefId || '',
+    },
     message: 'Ticket verified! Please complete your registration.',
   });
 });
@@ -328,7 +354,7 @@ authRouter.post('/login', async (req: Request, res: Response): Promise<void> => 
 // 4. Register or Update User Profile (Saves directly to Supabase profiles table)
 // =============================================================================
 authRouter.post('/register', async (req: Request, res: Response): Promise<void> => {
-  const { id, email, name, password, role, bio, githubUrl, linkedinUrl } = req.body;
+  const { id, email, name, password, role, bio, githubUrl, linkedinUrl, qrPayload } = req.body;
 
   if (
     !email?.trim() ||
@@ -351,11 +377,12 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
   const cleanEmail = email.trim().toLowerCase();
 
   // 1. Verify that email is on the ticketed whitelist
-  const { isWhitelisted, ticketType } = await checkWhitelistInDb(cleanEmail);
+  const wl = await checkWhitelistInDb(cleanEmail);
+  const { isWhitelisted, ticketType } = wl;
   if (!isWhitelisted) {
     res.status(403).json({
       success: false,
-      message: 'This email is not on the ticketed whitelist. Please use the email registered on Peatix, or refer to the DevFest registration booth to check your registration details.',
+      message: 'This email is not on the ticketed whitelist. Please use the email registered on Luma, or refer to the DevFest registration booth to check your registration details.',
     });
     return;
   }
@@ -421,6 +448,8 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
     profileId = randomUUID();
   }
 
+  const resolvedQrPayload = qrPayload?.trim() || wl.qrPayload || generateAttendeeQrPayload(name);
+
   const upsertData: Record<string, any> = {
     id: profileId,
     email: cleanEmail,
@@ -429,7 +458,7 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
     bio: bio.trim(),
     github_url: githubUrl?.trim() || '',
     linkedin_url: linkedinUrl.trim(),
-    qr_payload: generateAttendeeQrPayload(name),
+    qr_payload: resolvedQrPayload,
     is_ticket_verified: true,
   };
 
@@ -692,4 +721,83 @@ const handleUpdateProfile = async (req: Request, res: Response): Promise<void> =
 
 authRouter.put('/profile', handleUpdateProfile);
 authRouter.post('/profile', handleUpdateProfile);
+
+/**
+ * POST /api/auth/admin/import-whitelist
+ * Bulk imports or updates attendees from Luma CSV into ticketing_whitelists
+ */
+authRouter.post('/admin/import-whitelist', async (req: Request, res: Response): Promise<void> => {
+  const { items, clearExisting } = req.body;
+
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    res.status(400).json({ success: false, message: 'No attendee items provided.' });
+    return;
+  }
+
+  try {
+    if (clearExisting) {
+      await supabaseAdmin.from('ticketing_whitelists').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    }
+
+    const chunkSize = 100;
+    let importedCount = 0;
+    const errors: string[] = [];
+
+    for (let i = 0; i < items.length; i += chunkSize) {
+      const chunk = items.slice(i, i + chunkSize);
+      const rows = chunk.map((r: any) => ({
+        email: String(r.email || '').trim().toLowerCase(),
+        full_name: r.full_name || null,
+        external_ref_id: r.external_ref_id || null,
+        qr_payload: r.qr_payload || null,
+        ticket_type: r.ticket_type || 'Standard Attendee',
+        job_title: r.job_title || null,
+        company: r.company || null,
+        tshirt_size: r.tshirt_size || null,
+        notes: r.notes || 'Imported via Luma CSV',
+      })).filter((r: any) => r.email.includes('@'));
+
+      const { error } = await supabaseAdmin
+        .from('ticketing_whitelists')
+        .upsert(rows, { onConflict: 'email' });
+
+      if (error) {
+        errors.push(`Chunk ${Math.floor(i / chunkSize) + 1}: ${error.message}`);
+      } else {
+        importedCount += rows.length;
+      }
+    }
+
+    res.json({
+      success: importedCount > 0,
+      importedCount,
+      message: `Successfully imported / updated ${importedCount} attendees in whitelist!`,
+      errors: errors.length > 0 ? errors : undefined,
+    });
+  } catch (err: any) {
+    console.error('Error during admin whitelist import:', err);
+    res.status(500).json({ success: false, message: err?.message || 'Server error importing whitelist.' });
+  }
+});
+
+/**
+ * POST /api/auth/admin/clear-whitelist
+ */
+authRouter.post('/admin/clear-whitelist', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const { error } = await supabaseAdmin
+      .from('ticketing_whitelists')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000');
+
+    if (error) {
+      res.status(500).json({ success: false, message: error.message });
+      return;
+    }
+    res.json({ success: true, message: 'All whitelist records cleared.' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err?.message || 'Server error clearing whitelist.' });
+  }
+});
+
 

@@ -66,6 +66,8 @@ export const useConferenceData = ({
     }
   });
   const [stampFeedback, setStampFeedback] = useState<string | null>(null);
+  const [requiredStamps, setRequiredStamps] = useState<number>(3);
+  const [isRallyComplete, setIsRallyComplete] = useState<boolean>(false);
 
   const [loginProvider, setLoginProvider] = useState<'google' | 'email'>(() => {
     try {
@@ -159,11 +161,19 @@ export const useConferenceData = ({
       if (fetchedFriends && fetchedFriends.length > 0) {
         setFriendsList(fetchedFriends);
       }
-      if (fetchedStamps && Array.isArray(fetchedStamps.stamps)) {
-        setClaimedStamps(fetchedStamps.stamps);
-        try {
-          localStorage.setItem('devfest_claimed_stamps', JSON.stringify(fetchedStamps.stamps));
-        } catch {}
+      if (fetchedStamps) {
+        if (Array.isArray(fetchedStamps.stamps)) {
+          setClaimedStamps(fetchedStamps.stamps);
+          try {
+            localStorage.setItem('devfest_claimed_stamps', JSON.stringify(fetchedStamps.stamps));
+          } catch {}
+        }
+        if (fetchedStamps.requiredStamps !== undefined) {
+          setRequiredStamps(fetchedStamps.requiredStamps);
+        }
+        if (fetchedStamps.isComplete !== undefined) {
+          setIsRallyComplete(fetchedStamps.isComplete);
+        }
       }
       setIsFriendsLoading(false);
       if (fetchedFriend) {
@@ -349,6 +359,8 @@ export const useConferenceData = ({
     setConnectionFeedback,
     claimedStamps,
     setClaimedStamps,
+    requiredStamps,
+    isRallyComplete,
     stampFeedback,
     loginProvider,
     savedSessionIds,

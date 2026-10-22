@@ -217,9 +217,10 @@ export const authService = {
     githubUrl?: string;
     linkedinUrl?: string;
     ticketType?: string;
+    qrPayload?: string;
   }): Promise<{ success: boolean; profile: UserProfile; message: string }> {
     const cleanEmail = profile.email.trim().toLowerCase();
-    const qrPayload = generateAttendeeQrPayload(profile.name);
+    const qrPayload = profile.qrPayload || generateAttendeeQrPayload(profile.name);
 
     if (USE_NODE_BACKEND) {
       try {
@@ -235,6 +236,7 @@ export const authService = {
             bio: profile.bio,
             githubUrl: profile.githubUrl,
             linkedinUrl: profile.linkedinUrl,
+            qrPayload: profile.qrPayload,
           }),
         });
 
@@ -557,6 +559,15 @@ export const authService = {
     profile: UserProfile | null;
     ticketType: string;
     message: string;
+    prefill?: {
+      name?: string;
+      role?: string;
+      jobTitle?: string;
+      company?: string;
+      ticketType?: string;
+      qrPayload?: string;
+      externalRefId?: string;
+    };
   }> {
     const cleanEmail = email.trim().toLowerCase();
 
@@ -582,25 +593,49 @@ export const authService = {
     // 1. Check whitelist in database
     let isWhitelisted = false;
     let ticketType = 'Standard Attendee';
+    let prefill: {
+      name?: string;
+      role?: string;
+      jobTitle?: string;
+      company?: string;
+      ticketType?: string;
+      qrPayload?: string;
+      externalRefId?: string;
+    } | undefined = undefined;
 
     try {
-      const { data: whitelistData, error: wlError } = await supabase.rpc('validate_registration_email', {
-        user_email: cleanEmail,
-      });
+      const { data: directWl } = await supabase
+        .from('ticketing_whitelists')
+        .select('*')
+        .eq('email', cleanEmail)
+        .limit(1);
 
-      if (!wlError && whitelistData && whitelistData.length > 0) {
-        isWhitelisted = !!whitelistData[0].is_whitelisted;
-        ticketType = whitelistData[0].ticket_type || 'Standard Attendee';
+      if (directWl && directWl.length > 0) {
+        const wl = directWl[0];
+        isWhitelisted = true;
+        ticketType = wl.ticket_type || 'Standard Attendee';
+        const rolePrefill = [wl.job_title, wl.company].filter(Boolean).join(' at ') || 'Participant';
+        prefill = {
+          name: wl.full_name || '',
+          jobTitle: wl.job_title || '',
+          company: wl.company || '',
+          role: rolePrefill,
+          ticketType: wl.ticket_type || 'Standard Attendee',
+          qrPayload: wl.qr_payload || '',
+          externalRefId: wl.external_ref_id || '',
+        };
       } else {
-        const { data: directWl } = await supabase
-          .from('ticketing_whitelists')
-          .select('*')
-          .eq('email', cleanEmail)
-          .limit(1);
+        const { data: whitelistData, error: wlError } = await supabase.rpc('validate_registration_email', {
+          user_email: cleanEmail,
+        });
 
-        if (directWl && directWl.length > 0) {
+        if (!wlError && whitelistData && whitelistData.length > 0 && whitelistData[0].is_whitelisted) {
           isWhitelisted = true;
-          ticketType = directWl[0].ticket_type || 'Standard Attendee';
+          ticketType = whitelistData[0].ticket_type || 'Standard Attendee';
+          prefill = {
+            ticketType,
+            externalRefId: whitelistData[0].external_ref_id || '',
+          };
         }
       }
     } catch (err) {
@@ -647,6 +682,7 @@ export const authService = {
           },
           ticketType,
           message: 'User profile found!',
+          prefill,
         };
       }
     } catch (err) {
@@ -660,6 +696,7 @@ export const authService = {
       profile: null,
       ticketType,
       message: 'Ticket verified! Welcome to DevFest, please complete your profile.',
+      prefill,
     };
   },
 

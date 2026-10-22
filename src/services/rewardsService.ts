@@ -32,6 +32,14 @@ export interface UserStampsResponse {
   }>;
   totalStamps: number;
   totalPoints: number;
+  requiredStamps?: number;
+  isComplete?: boolean;
+  booths?: Array<{
+    id: string;
+    name: string;
+    visited: boolean;
+    visitedAt: string | null;
+  }>;
 }
 
 export interface ClaimStampResult {
@@ -98,6 +106,9 @@ export const rewardsService = {
             stampDetails: data.stampDetails || [],
             totalStamps: data.totalStamps || (Array.isArray(data.stamps) ? data.stamps.length : 0),
             totalPoints: data.totalPoints || 0,
+            requiredStamps: data.requiredStamps,
+            isComplete: data.isComplete,
+            booths: data.booths,
           };
         }
       } catch (err) {

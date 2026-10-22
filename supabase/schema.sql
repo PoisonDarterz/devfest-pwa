@@ -15,13 +15,20 @@ CREATE TABLE IF NOT EXISTS public.ticketing_whitelists (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email TEXT UNIQUE NOT NULL,
     ticket_type TEXT NOT NULL DEFAULT 'Standard Attendee', -- 'VIP Attendee', 'Standard Attendee', 'Walk-in Attendee', 'Speaker', 'Organizer', 'Sponsor', 'Core Team'
-    external_ref_id TEXT, -- e.g. Ticket2u reference ID, Peatix order ID, or CSV row ID
+    external_ref_id TEXT, -- e.g. Luma guest_id or ticket key
+    qr_payload TEXT, -- Full Luma QR check-in URL
+    full_name TEXT, -- Pre-filled name from Luma CSV
+    job_title TEXT, -- Pre-filled Job Title from Luma CSV
+    company TEXT, -- Pre-filled Company / Institution from Luma CSV
+    tshirt_size TEXT, -- T-shirt size
     notes TEXT,
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- Index for fast lowercased email matching during registration
 CREATE INDEX IF NOT EXISTS idx_ticketing_whitelists_email ON public.ticketing_whitelists(LOWER(email));
+CREATE INDEX IF NOT EXISTS idx_ticketing_whitelists_external_ref_id ON public.ticketing_whitelists(external_ref_id);
+CREATE INDEX IF NOT EXISTS idx_ticketing_whitelists_qr_payload ON public.ticketing_whitelists(qr_payload);
 
 -- -----------------------------------------------------------------------------
 -- 2. USER PROFILES TABLE (Filled in by participant upon registration)
@@ -53,8 +60,8 @@ CREATE OR REPLACE VIEW public.vw_profiles AS
 SELECT 
     p.id, 
     p.email, 
-    p.full_name, 
-    p.company_role, 
+    COALESCE(p.full_name, tw.full_name) AS full_name, 
+    COALESCE(p.company_role, CASE WHEN tw.job_title IS NOT NULL AND tw.company IS NOT NULL THEN tw.job_title || ' at ' || tw.company ELSE COALESCE(tw.job_title, tw.company) END, 'Participant') AS company_role, 
     p.bio, 
     p.github_url, 
     p.linkedin_url,
@@ -63,10 +70,12 @@ SELECT
     p.is_ticket_verified, 
     p.is_checked_in, 
     p.checked_in_at,
-    p.qr_payload, 
+    COALESCE(p.qr_payload, tw.qr_payload) AS qr_payload, 
     p.created_at,
     COALESCE(tw.ticket_type, 'Standard Attendee') AS ticket_type, 
-    tw.external_ref_id
+    tw.external_ref_id,
+    tw.company,
+    tw.job_title
 FROM public.profiles p
 LEFT JOIN public.ticketing_whitelists tw ON LOWER(p.email) = LOWER(tw.email);
 

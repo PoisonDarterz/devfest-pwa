@@ -5,14 +5,24 @@ import type { WhitelistItem } from '../../services/adminService';
 import adminService from '../../services/adminService';
 import { faqService } from '../../services/faqService';
 import { notificationsService } from '../../services/notificationsService';
+import { parseLumaCsv, type CsvParseResult } from '../../lib/csvParser';
 // import GdgKlLogo from '../common/GdgKlLogo';
 
-// type OperationsTab = 'booth_qr' | 'whitelist' | 'broadcast' | 'faqs';
-type OperationsTab = /* 'booth_qr' | */ 'whitelist' | 'broadcast' | 'faqs';
+type OperationsTab = 'import_csv' | 'whitelist' | 'broadcast' | 'faqs';
 
 export const AdminOperationsSection: React.FC = () => {
-  // const [activeTab, setActiveTab] = useState<OperationsTab>('booth_qr');
-  const [activeTab, setActiveTab] = useState<OperationsTab>('whitelist');
+  const [activeTab, setActiveTab] = useState<OperationsTab>('import_csv');
+
+  // --- LUMA CSV IMPORT STATE ---
+  const [csvText, setCsvText] = useState('');
+  const [csvFileName, setCsvFileName] = useState<string | null>(null);
+  const [inputMode, setInputMode] = useState<'upload' | 'paste'>('upload');
+  const [parseResult, setParseResult] = useState<CsvParseResult | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState<{ current: number; total: number } | null>(null);
+  const [importFeedback, setImportFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [clearExistingBeforeImport, setClearExistingBeforeImport] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   /* --- BOOTH QR GENERATOR STATE ---
   const [booths, setBooths] = useState<Booth[]>([]);
@@ -82,6 +92,77 @@ export const AdminOperationsSection: React.FC = () => {
     }
     loadData();
   }, []);
+
+  // --- LUMA CSV HANDLERS ---
+  const handleProcessCsv = (raw: string, filename?: string) => {
+    setCsvText(raw);
+    if (filename) setCsvFileName(filename);
+    setImportFeedback(null);
+    if (!raw.trim()) {
+      setParseResult(null);
+      return;
+    }
+    const result = parseLumaCsv(raw);
+    setParseResult(result);
+  };
+
+  const handleFileUpload = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = (e.target?.result as string) || '';
+      handleProcessCsv(content, file.name);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleLoadSampleLumaCsv = () => {
+    const sample = `guest_id,name,first_name,last_name,email,phone_number,created_at,approval_status,checked_in_at,utm_source,utm_medium,utm_campaign,utm_term,utm_content,google_click_id,meta_click_id,x_click_id,linkedin_click_id,tiktok_click_id,reddit_click_id,yandex_click_id,referrer,referred_by,qr_code_url,amount,amount_tax,amount_discount,currency,coupon_code,eth_address,solana_address,survey_response_rating,survey_response_feedback,ticket_type_id,ticket_name,Job Title,Company / Institution,T-Shirt Size (Standard Sizing)
+gst-auuQTTSMZ4kELVH,Min Han Lai,Min Han,Lai,2004laiminhan@gmail.com,,2026-10-18T15:00:21.753Z,approved,,,,,,,,,,,,,,,,https://luma.com/check-in/evt-Oe2V97Qj3BoILBV?pk=qgbP7Ial653qHmL,MYR 0.00,MYR 0.00,"MYR 99,999.00",myr,TEST123,,,,,ttype-QdJ2ECNwbVaPD39,Standard,Jiayong slaves,UM,L
+gst-wDzb1PMM9xEf4q2,AnnexHub Test XXL,,,nick+devfest-test-xxl@annexcs.com,,2026-10-18T04:05:24.786Z,approved,,,,,,,,,,,,,,,,https://luma.com/check-in/evt-Oe2V97Qj3BoILBV?pk=Pjf1ILLngSoqvBI,$0.00,$0.00,$0.00,usd,,,,,,ttype-QdJ2ECNwbVaPD39,Standard,Tester,AnnexHub,XXL
+gst-rwm7DCuCkbrslue,Siti,Siti,,nick+devfest-test-single@annexcs.com,,2026-10-18T04:05:24.786Z,approved,,,,,,,,,,,,,,,,https://luma.com/check-in/evt-Oe2V97Qj3BoILBV?pk=OKDi6WKqRmPxbfX,$0.00,$0.00,$0.00,usd,,,,,,ttype-QdJ2ECNwbVaPD39,Standard,Developer,Google Developer Space,S
+gst-qFK4DI0tM1IUl9w,AnnexHub Test M,,,nick+devfest-test-m@annexcs.com,,2026-10-18T04:05:24.772Z,approved,,,,,,,,,,,,,,,,https://luma.com/check-in/evt-Oe2V97Qj3BoILBV?pk=En4d2k64CS4KnFX,$0.00,$0.00,$0.00,usd,,,,,,ttype-QdJ2ECNwbVaPD39,Standard,Cloud Architect,AnnexHub,M
+gst-QJ3TOhmQkCwNhZ9,AnnexHub Test L,,,nick+devfest-test-l@annexcs.com,,2026-10-18T04:05:24.772Z,approved,,,,,,,,,,,,,,,,https://luma.com/check-in/evt-Oe2V97Qj3BoILBV?pk=ckHCKB9WlMLJLAr,$0.00,$0.00,$0.00,usd,,,,,,ttype-QdJ2ECNwbVaPD39,Standard,Tech Lead,AnnexHub,L
+gst-p4fe7w6uzpMG8jP,AnnexHub Test 3XL,,,nick+devfest-test-3xl@annexcs.com,,2026-10-18T04:05:24.772Z,approved,,,,,,,,,,,,,,,,https://luma.com/check-in/evt-Oe2V97Qj3BoILBV?pk=ujH3sWGx29aLRMB,$0.00,$0.00,$0.00,usd,,,,,,ttype-QdJ2ECNwbVaPD39,Standard,Full Stack,AnnexHub,3XL
+gst-EML4PlfvWqls3Qb,AnnexHub Test XS,,,nick+devfest-test-xs@annexcs.com,,2026-10-18T04:05:24.774Z,approved,,,,,,,,,,,,,,,,https://luma.com/check-in/evt-Oe2V97Qj3BoILBV?pk=eVmNa3TNpKzpHI4,$0.00,$0.00,$0.00,usd,,,,,,ttype-QdJ2ECNwbVaPD39,Standard,Tester,AnnexHub,XS`;
+    setInputMode('paste');
+    handleProcessCsv(sample, 'luma_sample_export.csv');
+  };
+
+  const handleExecuteImport = async () => {
+    if (!parseResult || parseResult.validRows.length === 0) return;
+    setIsImporting(true);
+    setImportProgress({ current: 0, total: parseResult.validRows.length });
+    setImportFeedback(null);
+
+    try {
+      const res = await adminService.importWhitelistRows(parseResult.validRows, {
+        clearExisting: clearExistingBeforeImport,
+        onProgress: (current, total) => setImportProgress({ current, total }),
+      });
+
+      setIsImporting(false);
+      setImportProgress(null);
+
+      if (res.success) {
+        setImportFeedback({ type: 'success', message: res.message });
+        const updatedWl = await adminService.getWhitelistedEmails();
+        setWhitelist(updatedWl);
+      } else {
+        setImportFeedback({ type: 'error', message: res.message || 'Import failed.' });
+      }
+    } catch (err: any) {
+      setIsImporting(false);
+      setImportProgress(null);
+      setImportFeedback({ type: 'error', message: err?.message || 'Network error during import.' });
+    }
+  };
+
+  const handleClearCsv = () => {
+    setCsvText('');
+    setCsvFileName(null);
+    setParseResult(null);
+    setImportFeedback(null);
+  };
 
   // Handler: Add Walk-in
   const handleAddWalkIn = async (e: React.FormEvent) => {
@@ -213,7 +294,7 @@ export const AdminOperationsSection: React.FC = () => {
       {/* Subnavigation Tabs */}
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-3">
         {[
-          // { id: 'booth_qr', label: '🎟️ Generate Booth QR', desc: 'Scan to claim stamp' },
+          { id: 'import_csv', label: '📥 Import Luma CSV', desc: 'Sync guests & QR codes' },
           { id: 'whitelist', label: '📝 Walk-in Whitelist', desc: 'Add attendee tickets' },
           { id: 'broadcast', label: '📢 Broadcast Notifications', desc: 'Live announcements' },
           { id: 'faqs', label: '❓ Update Event FAQs', desc: 'Attendee helper info' },
@@ -401,6 +482,328 @@ export const AdminOperationsSection: React.FC = () => {
       */}
 
       {/* ========================================================================= */}
+      {/* 0. LUMA CSV IMPORT SECTION */}
+      {/* ========================================================================= */}
+      {activeTab === 'import_csv' && (
+        <div className="space-y-6">
+          {/* Top Info Banner */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xl">📥</span>
+                <h3 className="text-base font-bold text-white font-heading">
+                  Luma Attendee CSV Importer
+                </h3>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-bold">
+                  Auto-sync Whitelist & QR
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">
+                Upload your guest export from Luma. The system automatically maps guest IDs, attendee names, company & job titles, ticket categories, and preserves their official Luma QR codes for networking and badge scanning.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleLoadSampleLumaCsv}
+                className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+                title="Populate form with sample test data matching Luma CSV layout"
+              >
+                <span>🧪</span>
+                <span>Load Sample CSV</span>
+              </button>
+              {(csvText || parseResult) && (
+                <button
+                  type="button"
+                  onClick={handleClearCsv}
+                  className="px-3 py-2 bg-slate-950 hover:bg-red-950/40 text-slate-400 hover:text-red-300 border border-slate-800 hover:border-red-800/40 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Feedback Banner */}
+          {importFeedback && (
+            <div
+              className={`p-4 rounded-2xl border text-xs font-semibold flex items-center justify-between gap-3 ${
+                importFeedback.type === 'success'
+                  ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+                  : 'bg-red-500/15 border-red-500/30 text-red-300'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <span>{importFeedback.type === 'success' ? '✅' : '⚠️'}</span>
+                <span>{importFeedback.message}</span>
+              </div>
+              {importFeedback.type === 'success' && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('whitelist')}
+                  className="px-3 py-1 bg-emerald-500 text-slate-950 rounded-lg font-bold hover:bg-emerald-400 transition-colors cursor-pointer"
+                >
+                  View Whitelist ({whitelist.length}) →
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Main Grid: Input Source on Left, Parsed Preview on Right */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Left: Input Selection */}
+            <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-lg">
+              {/* Input Mode Selector */}
+              <div className="flex rounded-xl bg-slate-950 p-1 border border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setInputMode('upload')}
+                  className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                    inputMode === 'upload'
+                      ? 'bg-emerald-500 text-slate-950 shadow-xs'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  📁 Upload .csv File
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInputMode('paste')}
+                  className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                    inputMode === 'paste'
+                      ? 'bg-emerald-500 text-slate-950 shadow-xs'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  📋 Paste CSV Text
+                </button>
+              </div>
+
+              {inputMode === 'upload' ? (
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDragging(true);
+                  }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDragging(false);
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) handleFileUpload(file);
+                  }}
+                  className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer flex flex-col items-center justify-center min-h-[220px] ${
+                    isDragging
+                      ? 'border-emerald-500 bg-emerald-500/10'
+                      : 'border-slate-700 bg-slate-950/60 hover:border-slate-500'
+                  }`}
+                  onClick={() => {
+                    const input = document.getElementById('csv-file-picker') as HTMLInputElement;
+                    input?.click();
+                  }}
+                >
+                  <input
+                    id="csv-file-picker"
+                    type="file"
+                    accept=".csv,text/csv"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleFileUpload(file);
+                    }}
+                  />
+                  <div className="w-12 h-12 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center text-2xl mb-3 shadow-inner">
+                    📄
+                  </div>
+                  <p className="text-xs font-bold text-white mb-1">
+                    {csvFileName ? (
+                      <span className="text-emerald-400 font-mono">{csvFileName}</span>
+                    ) : (
+                      'Click to select or drag & drop Luma CSV'
+                    )}
+                  </p>
+                  <p className="text-[11px] text-slate-400">
+                    Supports exports with guest_id, email, qr_code_url, etc.
+                  </p>
+                  {csvFileName && (
+                    <span className="mt-3 px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px] font-mono font-bold">
+                      ✓ File loaded
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center text-xs">
+                    <label className="font-bold text-slate-300 font-mono">Paste CSV Raw Text:</label>
+                    <span className="text-[10px] text-slate-500">First line must be header</span>
+                  </div>
+                  <textarea
+                    rows={9}
+                    placeholder="guest_id,name,email,qr_code_url,ticket_name,Job Title,Company / Institution..."
+                    value={csvText}
+                    onChange={(e) => handleProcessCsv(e.target.value, 'pasted_data.csv')}
+                    className="w-full p-3 bg-slate-950 text-xs text-white font-mono rounded-xl border border-slate-800 focus:outline-none focus:border-emerald-500 resize-y"
+                  />
+                </div>
+              )}
+
+              {/* Import Options & Action */}
+              <div className="pt-2 border-t border-slate-800 space-y-3">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={clearExistingBeforeImport}
+                    onChange={(e) => setClearExistingBeforeImport(e.target.checked)}
+                    className="w-4 h-4 rounded bg-slate-950 border-slate-700 text-emerald-500 focus:ring-0 focus:ring-offset-0"
+                  />
+                  <span className="text-xs text-slate-300">
+                    Clear existing whitelist before importing (replace mode)
+                  </span>
+                </label>
+
+                <button
+                  type="button"
+                  disabled={!parseResult || parseResult.validRows.length === 0 || isImporting}
+                  onClick={handleExecuteImport}
+                  className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-extrabold text-xs rounded-xl transition-all shadow-md cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isImporting ? (
+                    <>
+                      <div className="w-4 h-4 rounded-full border-2 border-slate-950 border-t-transparent animate-spin" />
+                      <span>
+                        Importing {importProgress ? `${importProgress.current} / ${importProgress.total}` : '...'}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span>🚀</span>
+                      <span>
+                        {parseResult && parseResult.validRows.length > 0
+                          ? `Import ${parseResult.validRows.length} Attendee(s) to Whitelist`
+                          : 'Load CSV to Begin Import'}
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Right: Detected Schema & Data Preview */}
+            <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-lg">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                <div>
+                  <h4 className="text-sm font-bold text-white font-heading">
+                    Parsed Whitelist Preview
+                  </h4>
+                  <p className="text-[11px] text-slate-400">
+                    {parseResult
+                      ? `${parseResult.validRows.length} valid attendee(s) ready for upsert`
+                      : 'No CSV parsed yet'}
+                  </p>
+                </div>
+
+                {parseResult && (
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-mono font-bold">
+                      {parseResult.validRows.length} Valid
+                    </span>
+                    {parseResult.invalidRows.length > 0 && (
+                      <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-mono font-bold">
+                        {parseResult.invalidRows.length} Skipped
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {parseResult ? (
+                <div className="space-y-4">
+                  {/* Column Detection Chips */}
+                  <div className="p-3 bg-slate-950/70 rounded-xl border border-slate-800 space-y-1.5">
+                    <div className="text-[10px] font-mono uppercase font-bold text-slate-400">
+                      Detected Columns Mapped:
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {Object.entries(parseResult.detectedColumns).map(([key, colName]) => (
+                        <span
+                          key={key}
+                          className={`px-2 py-0.5 rounded text-[10px] font-mono font-medium ${
+                            colName
+                              ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-800/60'
+                              : 'bg-slate-900 text-slate-500 border border-slate-800'
+                          }`}
+                        >
+                          {colName ? `✓ ${key} (${colName})` : `✗ ${key}`}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Preview Table (First 5 rows) */}
+                  <div className="overflow-x-auto max-h-[320px] overflow-y-auto">
+                    <table className="w-full text-left text-xs text-slate-300">
+                      <thead className="bg-slate-950/80 text-[10px] uppercase font-mono text-slate-400 border-b border-slate-800 sticky top-0">
+                        <tr>
+                          <th className="py-2 px-2.5">Attendee</th>
+                          <th className="py-2 px-2.5">Email</th>
+                          <th className="py-2 px-2.5">Ticket</th>
+                          <th className="py-2 px-2.5">Company / Role</th>
+                          <th className="py-2 px-2.5">Luma QR</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/60">
+                        {parseResult.validRows.slice(0, 5).map((row, idx) => (
+                          <tr key={idx} className="hover:bg-slate-800/30">
+                            <td className="py-2 px-2.5 font-bold text-white">
+                              {row.full_name || '—'}
+                            </td>
+                            <td className="py-2 px-2.5 font-mono text-[11px] text-emerald-300">
+                              {row.email}
+                            </td>
+                            <td className="py-2 px-2.5">
+                              <span className="px-2 py-0.5 rounded-full bg-slate-800 text-[10px] font-bold text-slate-300 border border-slate-700">
+                                {row.ticket_type || 'Standard'}
+                              </span>
+                            </td>
+                            <td className="py-2 px-2.5 text-[11px] text-slate-400">
+                              {[row.job_title, row.company].filter(Boolean).join(' • ') || '—'}
+                            </td>
+                            <td className="py-2 px-2.5">
+                              {row.qr_payload ? (
+                                <span className="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 text-[9px] font-mono">
+                                  Luma QR ✓
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-slate-500 font-mono">None</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {parseResult.validRows.length > 5 && (
+                    <p className="text-[11px] text-slate-500 font-mono text-center">
+                      + {parseResult.validRows.length - 5} more attendee row(s) will be imported
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="p-12 text-center text-slate-500 space-y-2">
+                  <div className="text-3xl">📥</div>
+                  <p className="text-xs">
+                    Select a CSV file or paste attendee CSV data to see the pre-import preview.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
       {/* 2. WALK-IN EMAIL WHITELIST SECTION */}
       {/* ========================================================================= */}
       {activeTab === 'whitelist' && (
@@ -489,13 +892,23 @@ export const AdminOperationsSection: React.FC = () => {
                 <p className="text-[11px] text-slate-400">Authorized for registration and login</p>
               </div>
 
-              <input
-                type="text"
-                placeholder="Search email, ticket, notes..."
-                value={whitelistSearch}
-                onChange={(e) => setWhitelistSearch(e.target.value)}
-                className="px-3 py-1.5 bg-slate-950 text-xs text-white rounded-lg border border-slate-800 max-w-[200px]"
-              />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('import_csv')}
+                  className="px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span>📥</span>
+                  <span>Import Luma CSV</span>
+                </button>
+                <input
+                  type="text"
+                  placeholder="Search email, name, notes..."
+                  value={whitelistSearch}
+                  onChange={(e) => setWhitelistSearch(e.target.value)}
+                  className="px-3 py-1.5 bg-slate-950 text-xs text-white rounded-lg border border-slate-800 max-w-[180px]"
+                />
+              </div>
             </div>
 
             {/* Quick Category Filter Pills */}
@@ -533,7 +946,7 @@ export const AdminOperationsSection: React.FC = () => {
               <table className="w-full text-left text-xs text-slate-300">
                 <thead className="bg-slate-950/80 text-[10px] uppercase font-mono text-slate-400 border-b border-slate-800 sticky top-0">
                   <tr>
-                    <th className="py-2.5 px-3">Email</th>
+                    <th className="py-2.5 px-3">Email & Attendee</th>
                     <th className="py-2.5 px-3">Ticket Type</th>
                     <th className="py-2.5 px-3">Ref / Notes</th>
                     <th className="py-2.5 px-3 text-right">Action</th>
@@ -549,14 +962,23 @@ export const AdminOperationsSection: React.FC = () => {
                         !q ||
                         w.email.toLowerCase().includes(q) ||
                         w.ticket_type.toLowerCase().includes(q) ||
+                        (w.full_name && w.full_name.toLowerCase().includes(q)) ||
+                        (w.company && w.company.toLowerCase().includes(q)) ||
                         (w.notes && w.notes.toLowerCase().includes(q)) ||
                         (w.external_ref_id && w.external_ref_id.toLowerCase().includes(q));
                       return matchesCategory && matchesSearch;
                     })
                     .map((item) => (
                       <tr key={item.id} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="py-2.5 px-3 font-mono font-medium text-white">
-                          {item.email}
+                        <td className="py-2.5 px-3">
+                          <div className="font-mono font-medium text-white">{item.email}</div>
+                          {(item.full_name || item.job_title || item.company) && (
+                            <div className="text-[11px] text-slate-400">
+                              {item.full_name}
+                              {item.job_title ? ` • ${item.job_title}` : ''}
+                              {item.company ? ` at ${item.company}` : ''}
+                            </div>
+                          )}
                         </td>
                         <td className="py-2.5 px-3">
                           <span
@@ -579,8 +1001,13 @@ export const AdminOperationsSection: React.FC = () => {
                             {item.ticket_type}
                           </span>
                         </td>
-                        <td className="py-2.5 px-3 text-slate-400 text-[11px] truncate max-w-[160px]">
-                          {item.notes || item.external_ref_id || '—'}
+                        <td className="py-2.5 px-3 text-slate-400 text-[11px]">
+                          <div className="truncate max-w-[160px]">{item.notes || item.external_ref_id || '—'}</div>
+                          {item.qr_payload && (
+                            <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 text-[9px] font-mono">
+                              Luma QR ✓
+                            </span>
+                          )}
                         </td>
                         <td className="py-2.5 px-3 text-right">
                           <button

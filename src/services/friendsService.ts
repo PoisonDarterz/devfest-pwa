@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import type { FriendConnection } from '../lib/types';
 import { USE_NODE_BACKEND, NODE_API_BASE_URL } from './apiConfig';
+import { parseAttendeeIdentifier } from '../lib/qrParser';
 
 export const friendsService = {
   // Fetch Friends Connections
@@ -107,19 +108,36 @@ export const friendsService = {
 
       let friend: any = null;
       if (params.qrPayload) {
-        const { data } = await supabase.from('profiles').select('*').eq('qr_payload', params.qrPayload).maybeSingle();
-        friend = data;
+        const parsed = parseAttendeeIdentifier(params.qrPayload);
+        if (parsed.pk) {
+          const { data } = await supabase
+            .from('vw_profiles')
+            .select('*')
+            .or(`external_ref_id.eq.${parsed.pk},qr_payload.ilike.%${parsed.pk}%,qr_payload.eq.${params.qrPayload}`)
+            .limit(1)
+            .maybeSingle();
+          friend = data;
+        } else {
+          const candidate = parsed.cleanKey || params.qrPayload;
+          const { data } = await supabase
+            .from('vw_profiles')
+            .select('*')
+            .or(`qr_payload.eq.${candidate},external_ref_id.eq.${candidate},email.ilike.${candidate}`)
+            .limit(1)
+            .maybeSingle();
+          friend = data;
+        }
       }
       if (!friend && params.friendEmail) {
         const { data } = await supabase
-          .from('profiles')
+          .from('vw_profiles')
           .select('*')
           .ilike('email', params.friendEmail.toLowerCase())
           .maybeSingle();
         friend = data;
       }
       if (!friend && params.nfcToken) {
-        const { data } = await supabase.from('profiles').select('*').eq('nfc_token', params.nfcToken).maybeSingle();
+        const { data } = await supabase.from('vw_profiles').select('*').eq('nfc_token', params.nfcToken).maybeSingle();
         friend = data;
       }
 

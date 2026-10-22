@@ -205,6 +205,63 @@ boothsRouter.get('/stamps', async (req: Request, res: Response): Promise<void> =
   const { email, userId: queryUserId } = req.query;
 
   try {
+    const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : null;
+
+    // 1. Check AnnexHub integration if configured and user email is provided
+    const annexApiKey = process.env.ANNEXHUB_API_KEY;
+    const annexEventId = process.env.ANNEXHUB_EVENT_ID;
+
+    if (annexApiKey && annexEventId && cleanEmail) {
+      try {
+        const annexUrl = `https://api.annexhub.ai/api/v1/partner/events/${annexEventId}/progress`;
+        const annexRes = await fetch(annexUrl, {
+          method: 'POST',
+          headers: {
+            'X-Api-Key': annexApiKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email: cleanEmail }),
+        });
+
+        if (annexRes.ok) {
+          const annexData = (await annexRes.json()) as any;
+          if (annexData && Array.isArray(annexData.booths)) {
+            const visitedBooths = annexData.booths.filter((b: any) => Boolean(b.visited));
+            const stamps = visitedBooths.map((b: any) => b.id);
+            const stampDetails = visitedBooths.map((b: any) => ({
+              id: b.id,
+              boothId: b.id,
+              boothName: b.name,
+              boothCode: b.name,
+              category: 'Exhibition Booth',
+              location: '',
+              claimedAt: b.visitedAt || new Date().toISOString(),
+              points: 15,
+            }));
+
+            const requiredStamps = Number(annexData.stamps?.required) || 3;
+            const collectedStamps = Number(annexData.stamps?.collected) || stamps.length;
+            const isComplete = Boolean(annexData.stamps?.complete || collectedStamps >= requiredStamps);
+
+            res.json({
+              success: true,
+              stamps,
+              stampDetails,
+              totalStamps: collectedStamps,
+              requiredStamps,
+              isComplete,
+              totalPoints: collectedStamps * 15,
+              booths: annexData.booths,
+              source: 'annexhub',
+            });
+            return;
+          }
+        }
+      } catch (annexErr) {
+        console.warn('[Booths] AnnexHub progress fetch failed, falling back to Supabase:', annexErr);
+      }
+    }
+
     const { userId } = await resolveUserId(
       req,
       typeof queryUserId === 'string' ? queryUserId : undefined,

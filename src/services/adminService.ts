@@ -1,6 +1,8 @@
 import { supabase } from '../lib/supabase';
 import { sendSystemNotificationDetailed } from '../lib/notifications';
 import type { /* Booth, */ FAQItem, AppNotification } from '../lib/types';
+import type { ParsedWhitelistRow } from '../lib/csvParser';
+import { USE_NODE_BACKEND, NODE_API_BASE_URL } from './apiConfig';
 
 export interface WhitelistItem {
   id: string;
@@ -8,6 +10,11 @@ export interface WhitelistItem {
   ticket_type: string;
   external_ref_id?: string;
   notes?: string;
+  qr_payload?: string;
+  full_name?: string;
+  job_title?: string;
+  company?: string;
+  tshirt_size?: string;
   created_at?: string;
 }
 
@@ -301,6 +308,95 @@ export const adminService = {
     } catch {
       return false;
     }
+  },
+
+  async clearWhitelist(): Promise<{ success: boolean; message: string }> {
+    try {
+      const { error } = await supabase.from('ticketing_whitelists').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (!error) {
+        return { success: true, message: 'Successfully cleared all whitelist records.' };
+      }
+      return { success: false, message: error.message };
+    } catch (err: any) {
+      return { success: false, message: err?.message || 'Failed to clear whitelist.' };
+    }
+  },
+
+  async importWhitelistRows(
+    rows: ParsedWhitelistRow[],
+    options?: { clearExisting?: boolean; onProgress?: (current: number, total: number) => void }
+  ): Promise<{ success: boolean; importedCount: number; message: string; errors?: string[] }> {
+    if (!rows || rows.length === 0) {
+      return { success: false, importedCount: 0, message: 'No rows provided to import.' };
+    }
+
+    if (options?.clearExisting) {
+      await adminService.clearWhitelist();
+    }
+
+    if (USE_NODE_BACKEND) {
+      try {
+        const res = await fetch(`${NODE_API_BASE_URL}/auth/admin/import-whitelist`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: rows, clearExisting: options?.clearExisting }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          return data;
+        }
+      } catch (err) {
+        console.warn('Backend import-whitelist failed, falling back to direct Supabase:', err);
+      }
+    }
+
+    // Direct Supabase Fallback: Chunk into batches of 100
+    const chunkSize = 100;
+    let importedCount = 0;
+    const errors: string[] = [];
+
+    for (let i = 0; i < rows.length; i += chunkSize) {
+      const chunk = rows.slice(i, i + chunkSize);
+      const payload = chunk.map((r) => ({
+        email: r.email.trim().toLowerCase(),
+        full_name: r.full_name || null,
+        external_ref_id: r.external_ref_id || null,
+        qr_payload: r.qr_payload || null,
+        ticket_type: r.ticket_type || 'Standard Attendee',
+        job_title: r.job_title || null,
+        company: r.company || null,
+        tshirt_size: r.tshirt_size || null,
+        notes: r.notes || 'Imported via Luma CSV',
+      }));
+
+      try {
+        const { error } = await supabase
+          .from('ticketing_whitelists')
+          .upsert(payload, { onConflict: 'email' });
+
+        if (error) {
+          errors.push(`Batch ${Math.floor(i / chunkSize) + 1}: ${error.message}`);
+        } else {
+          importedCount += chunk.length;
+        }
+      } catch (batchErr: any) {
+        errors.push(`Batch ${Math.floor(i / chunkSize) + 1}: ${batchErr?.message || 'Unknown error'}`);
+      }
+
+      if (options?.onProgress) {
+        options.onProgress(Math.min(i + chunkSize, rows.length), rows.length);
+      }
+    }
+
+    const success = importedCount > 0;
+    return {
+      success,
+      importedCount,
+      message: success
+        ? `Successfully imported / updated ${importedCount} attendee(s) into whitelist.`
+        : `Failed to import whitelist rows: ${errors.join(', ')}`,
+      errors: errors.length > 0 ? errors : undefined,
+    };
   },
 
   // 3. Broadcast Notifications

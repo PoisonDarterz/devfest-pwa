@@ -185,9 +185,18 @@ const handleAddConnection = async (req: Request, res: Response): Promise<void> =
       friendProfile = data;
     }
 
-    // B. Check by qrPayload (e.g. DEVFEST-KL-2026-..., email, or json)
+    // B. Check by qrPayload (e.g. Luma URL, Luma pk, DEVFEST-..., email, or json)
     if (!friendProfile && qrPayload) {
       let candidate = (qrPayload as string).trim();
+
+      // Extract pk query param if candidate is a Luma check-in URL
+      let pkParam: string | null = null;
+      if (candidate.includes('pk=')) {
+        try {
+          const parsedUrl = new URL(candidate);
+          pkParam = parsedUrl.searchParams.get('pk')?.trim() || null;
+        } catch {}
+      }
 
       // Check if candidate is JSON string
       if (candidate.startsWith('{') && candidate.endsWith('}')) {
@@ -197,6 +206,9 @@ const handleAddConnection = async (req: Request, res: Response): Promise<void> =
             const { data } = await supabaseAdmin.from('profiles').select('*').eq('id', parsed.id).maybeSingle();
             if (data) friendProfile = data;
           }
+          if (!friendProfile && (parsed.pk || parsed.ticket)) {
+            pkParam = (parsed.pk || parsed.ticket)?.trim() || null;
+          }
           if (!friendProfile && parsed.email) {
             const { data } = await supabaseAdmin.from('profiles').select('*').ilike('email', parsed.email).maybeSingle();
             if (data) friendProfile = data;
@@ -204,13 +216,33 @@ const handleAddConnection = async (req: Request, res: Response): Promise<void> =
         } catch {}
       }
 
-      // Query by direct qr_payload
+      // 1. Query by direct profiles.qr_payload
       if (!friendProfile) {
         const { data } = await supabaseAdmin.from('profiles').select('*').eq('qr_payload', candidate).maybeSingle();
         friendProfile = data;
       }
 
-      // Query by email if candidate contains @
+      // 2. Query by pkParam in vw_profiles (matches external_ref_id or qr_payload)
+      if (!friendProfile && pkParam) {
+        const { data } = await supabaseAdmin
+          .from('vw_profiles')
+          .select('*')
+          .or(`external_ref_id.eq.${pkParam},qr_payload.ilike.%${pkParam}%`)
+          .maybeSingle();
+        if (data) friendProfile = data;
+      }
+
+      // 3. Query by candidate in vw_profiles (matches external_ref_id or qr_payload)
+      if (!friendProfile) {
+        const { data } = await supabaseAdmin
+          .from('vw_profiles')
+          .select('*')
+          .or(`external_ref_id.eq.${candidate},qr_payload.eq.${candidate}`)
+          .maybeSingle();
+        if (data) friendProfile = data;
+      }
+
+      // 4. Query by email if candidate contains @
       if (!friendProfile && candidate.includes('@')) {
         const { data } = await supabaseAdmin.from('profiles').select('*').ilike('email', candidate.toLowerCase()).maybeSingle();
         friendProfile = data;

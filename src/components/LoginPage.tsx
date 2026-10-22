@@ -65,6 +65,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [bio, setBio] = useState('');
   const [githubUrl, setGithubUrl] = useState('');
   const [linkedinUrl, setLinkedinUrl] = useState('');
+  const [qrPayload, setQrPayload] = useState('');
 
   // Interactive States
   const [isLoading, setIsLoading] = useState(false);
@@ -78,6 +79,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       setProfileName(initialPendingGoogleUser.name);
       setGoogleUserId(initialPendingGoogleUser.id || '');
       setMode('complete_profile');
+
+      // Check if whitelist has prefilled profile details (e.g. from imported Luma CSV)
+      ApiService.checkUserStatus(initialPendingGoogleUser.email)
+        .then((status) => {
+          if (status.prefill) {
+            if (status.prefill.name) setProfileName(status.prefill.name);
+            if (status.prefill.role) setRole(status.prefill.role);
+            if (status.prefill.qrPayload) setQrPayload(status.prefill.qrPayload);
+          }
+        })
+        .catch(() => {});
     }
   }, [initialPendingGoogleUser]);
 
@@ -139,13 +151,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         setHasPassword(status.hasPassword ?? true);
         setMode('login_password');
       } else {
-        const defaultName = email
-          .trim()
-          .split('@')[0]
-          .replace(/[._]/g, ' ')
-          .replace(/\b\w/g, (c) => c.toUpperCase());
-
-        setProfileName(defaultName);
+        if (status.prefill) {
+          if (status.prefill.name) setProfileName(status.prefill.name);
+          if (status.prefill.role) setRole(status.prefill.role);
+          if (status.prefill.qrPayload) setQrPayload(status.prefill.qrPayload);
+        } else {
+          const defaultName = email
+            .trim()
+            .split('@')[0]
+            .replace(/[._]/g, ' ')
+            .replace(/\b\w/g, (c) => c.toUpperCase());
+          setProfileName(defaultName);
+        }
         setMode('register_first_time');
       }
     } catch (err) {
@@ -250,6 +267,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         return;
       }
 
+      if (status.prefill) {
+        if (status.prefill.name) setProfileName(status.prefill.name);
+        if (status.prefill.role) setRole(status.prefill.role);
+        if (status.prefill.qrPayload) setQrPayload(status.prefill.qrPayload);
+      }
+
       setIsLoading(false);
       setMode('complete_profile');
     } catch {
@@ -317,6 +340,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         bio: activeBio,
         githubUrl: activeGithub || undefined,
         linkedinUrl: activeLinkedin,
+        qrPayload: qrPayload || undefined,
       });
 
       if (result.success && result.profile) {

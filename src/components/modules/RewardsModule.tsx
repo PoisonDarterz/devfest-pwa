@@ -14,6 +14,8 @@ export interface RewardSelection {
 
 interface RewardsModuleProps {
   claimedStamps: string[];
+  requiredStamps?: number;
+  isRallyComplete?: boolean;
   userProfile?: {
     id?: string;
     email?: string;
@@ -28,6 +30,8 @@ interface RewardsModuleProps {
 
 export const RewardsModule: React.FC<RewardsModuleProps> = ({
   claimedStamps: initialClaimedStamps,
+  requiredStamps = 3,
+  isRallyComplete = false,
   userProfile,
   onBackToHome,
 }) => {
@@ -80,19 +84,19 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
   }, [userProfile?.email, userProfile?.id]);
 
   const stampsCount = localStamps.length;
-  const isUnlocked = stampsCount >= 10;
-  const remainingStamps = Math.max(0, 10 - stampsCount);
+  const isUnlocked = isRallyComplete || stampsCount >= requiredStamps;
+  const remainingStamps = Math.max(0, requiredStamps - stampsCount);
   const unclaimedCount = userRewards.filter((r) => r.status !== 'claimed').length;
 
-  // Demo helpers to quickly test 10 stamps
+  // Demo helpers to quickly test stamps
   const handleAddDemoStamp = () => {
-    if (localStamps.length < 10) {
+    if (localStamps.length < requiredStamps) {
       setLocalStamps((prev) => [...prev, `demo-stamp-${prev.length + 1}`]);
     }
   };
 
   const handleFillAllStamps = () => {
-    setLocalStamps(Array.from({ length: 10 }, (_, i) => `demo-stamp-${i + 1}`));
+    setLocalStamps(Array.from({ length: requiredStamps }, (_, i) => `demo-stamp-${i + 1}`));
   };
 
   // Staff claim for participant's swag item with accidental contact confirmation
@@ -309,12 +313,12 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
                 
                 {/* Header Instruction */}
                 <p className="font-serif italic font-medium text-sm text-slate-800 tracking-tight">
-                  Reach 10 stamps to claim a blind box.
+                  Reach {requiredStamps} stamps to claim a blind box.
                 </p>
 
-                {/* 10 Stamp Boxes Grid (2 rows x 5 columns with larger cells) */}
-                <div className="grid grid-cols-5 gap-2.5 pt-2 pb-2">
-                  {[...Array(10)].map((_, idx) => {
+                {/* Stamp Boxes Grid */}
+                <div className={`grid ${requiredStamps <= 5 ? 'grid-cols-3 sm:grid-cols-5' : 'grid-cols-5'} gap-2.5 pt-2 pb-2`}>
+                  {[...Array(requiredStamps)].map((_, idx) => {
                     const isClaimed = idx < stampsCount;
                     return (
                       <div
@@ -474,14 +478,14 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
                 onClick={handleAddDemoStamp}
                 className="px-3.5 py-1.5 rounded-full bg-slate-800/90 hover:bg-slate-700 text-slate-300 font-medium border border-slate-700 transition-colors cursor-pointer"
               >
-                +1 Stamp ({stampsCount}/10)
+                +1 Stamp ({stampsCount}/{requiredStamps})
               </button>
               <button
                 type="button"
                 onClick={handleFillAllStamps}
                 className="px-3.5 py-1.5 rounded-full bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold border border-amber-500/30 transition-colors cursor-pointer"
               >
-                ⚡ Unlock 10 Stamps
+                ⚡ Unlock {requiredStamps} Stamps
               </button>
             </div>
 
@@ -698,7 +702,7 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
                   {physicalBoxReward?.claimCode || 'DF26-BOX-0001'}
                 </p>
                 <p className="text-[10px] text-emerald-700 font-bold">
-                  ● Active Live Voucher • 10 Stamps Verified
+                  ● Active Live Voucher • {requiredStamps} Stamps Verified
                 </p>
               </div>
 

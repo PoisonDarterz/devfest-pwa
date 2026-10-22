@@ -14,7 +14,7 @@ interface ScannerCameraModuleProps {
   onBackToBadge: () => void;
   onNfcBump?: (payload?: string) => void;
   onTriggerFriendDemo: () => void;
-  onTriggerBoothDemo: () => void;
+  onTriggerBoothDemo?: () => void;
   userName?: string;
   userRole?: string;
   qrPayload?: string;
@@ -404,13 +404,15 @@ export const ScannerCameraModule: React.FC<ScannerCameraModuleProps> = ({
           >
             Demo Friend
           </button>
-          <button
-            type="button"
-            onClick={onTriggerBoothDemo}
-            className="px-2.5 py-1 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 text-[10px] font-bold tracking-tight transition-colors cursor-pointer border border-slate-300"
-          >
-            Demo Booth
-          </button>
+          {onTriggerBoothDemo && (
+            <button
+              type="button"
+              onClick={onTriggerBoothDemo}
+              className="px-2.5 py-1 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 text-[10px] font-bold tracking-tight transition-colors cursor-pointer border border-slate-300"
+            >
+              Demo Booth
+            </button>
+          )}
         </div>
       </div>
     </motion.div>
