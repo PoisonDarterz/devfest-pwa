@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:worker": "wrangler dev",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node -e \"const fs=require('fs');const p='dist/sw.js';if(fs.existsSync(p)){const c=fs.readFileSync(p,'utf8');if(!c.startsWith('importScripts')){fs.writeFileSync(p,'importScripts(\\\"/sw-push.js\\\");\\n'+c)}}\"",
     "lint": "eslint .",
     "preview": "vite preview",
     "preview:cf": "npm run build && wrangler dev",

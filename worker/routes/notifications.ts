@@ -519,39 +519,32 @@ notificationsRouter.post('/', async (c) => {
       return c.json({ message: 'Failed to broadcast notification.', error: error.message }, 500);
     }
 
-    // Dispatch Web Push to all registered devices (using waitUntil if running in Worker runtime)
-    const dispatchPromise = (async () => {
-      try {
-        const subs = await getAllSubscriptions(supabaseAdmin);
-        await sendWebPushToSubscriptions(supabaseAdmin, c.env, subs, {
-          title: title.trim(),
-          body: message.trim(),
-          url: '/',
-          data: {
-            type: type || 'organizer_announcement',
-            targetTrack: targetTrack || 'All',
-          },
-        });
-      } catch (pushErr) {
-        console.warn('[WebPush] Error during broadcast push dispatch:', pushErr);
-      }
-    })();
-
+    // Dispatch Web Push to all registered devices before returning
+    let pushStats = { sent: 0, failed: 0, total: 0 };
     try {
-      if (c.executionCtx && typeof c.executionCtx.waitUntil === 'function') {
-        c.executionCtx.waitUntil(dispatchPromise);
-      } else {
-        await dispatchPromise;
-      }
-    } catch {
-      await dispatchPromise;
+      const subs = await getAllSubscriptions(supabaseAdmin);
+      pushStats.total = subs.length;
+      const res = await sendWebPushToSubscriptions(supabaseAdmin, c.env, subs, {
+        title: title.trim(),
+        body: message.trim(),
+        url: '/',
+        data: {
+          type: type || 'organizer_announcement',
+          targetTrack: targetTrack || 'All',
+        },
+      });
+      pushStats.sent = res.sent;
+      pushStats.failed = res.failed;
+    } catch (pushErr) {
+      console.warn('[WebPush] Error during broadcast push dispatch:', pushErr);
     }
 
     return c.json(
       {
         success: true,
         notification: data[0],
-        message: 'Notification broadcasted and sent to all attendee devices via Web Push.',
+        pushStats,
+        message: `Notification broadcasted and pushed to ${pushStats.sent}/${pushStats.total} registered device(s) via Web Push.`,
       },
       201
     );

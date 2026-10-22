@@ -7,7 +7,7 @@ export const DEFAULT_VAPID_PUBLIC_KEY =
   'BGlGZhNt2_kafTHuVXzGfz7OqZBaLCHJK3bsRuIKlqwWb5K7AePOC5MvOqdznc_7uTcEk7mZofGaAwIf6AUvjls';
 export const DEFAULT_VAPID_PRIVATE_KEY =
   '2089JZ9OAReh0uN5c-vHKsAIbebAHpMzuYVKzueSm5w';
-export const DEFAULT_VAPID_SUBJECT = 'mailto:organizers@devfest.kl';
+export const DEFAULT_VAPID_SUBJECT = 'mailto:organizers@gmail.com';
 
 export interface StoredPushSubscription {
   id: string;
