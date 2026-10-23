@@ -21,7 +21,7 @@ export interface FriendConnection {
 
 interface FriendsModuleProps {
   onBackToHome: () => void;
-  onOpenQrOrNfc: () => void;
+  onOpenQrScanner: () => void;
   initialSelectedFriend?: FriendConnection | null;
   friends?: FriendConnection[];
   isLoading?: boolean;
@@ -295,7 +295,7 @@ const QrIcon = () => (
 
 export const FriendsModule: React.FC<FriendsModuleProps> = ({
   onBackToHome,
-  onOpenQrOrNfc,
+  onOpenQrScanner,
   initialSelectedFriend,
   friends = DEFAULT_FRIENDS,
   isLoading = false,
@@ -369,12 +369,12 @@ export const FriendsModule: React.FC<FriendsModuleProps> = ({
               <div className="space-y-1">
                 <p className="font-extrabold text-sm text-slate-900">No connections yet</p>
                 <p className="text-[11.5px] text-slate-600 leading-relaxed max-w-[260px] mx-auto font-sans">
-                  Tap the button below to bump phones with NFC or scan attendee badge QR codes to expand your network!
+                  Tap the button below to scan attendee badge QR codes and expand your network!
                 </p>
               </div>
               <button
                 type="button"
-                onClick={onOpenQrOrNfc}
+                onClick={onOpenQrScanner}
                 className="mt-2 inline-flex items-center gap-2 bg-[#2D6E66] text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md hover:bg-[#255C55] transition-all cursor-pointer"
               >
                 <QrIcon />
@@ -414,11 +414,11 @@ export const FriendsModule: React.FC<FriendsModuleProps> = ({
         <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[#ECE6DA] via-[#ECE6DA]/90 to-transparent pointer-events-none flex items-center justify-center pb-3">
           <button
             type="button"
-            onClick={onOpenQrOrNfc}
+            onClick={onOpenQrScanner}
             className="pointer-events-auto bg-[#ECE6DA] hover:bg-[#F2ECE1] text-slate-900 border-2 border-slate-700/60 rounded-full px-6 py-2.5 shadow-xl flex items-center gap-2.5 font-bold text-xs tracking-tight transition-all active:scale-95 cursor-pointer"
           >
             <QrIcon />
-            <span>Friend QR Code / NFC Bump</span>
+            <span>Scan Friend Badge QR</span>
           </button>
         </div>
       </div>

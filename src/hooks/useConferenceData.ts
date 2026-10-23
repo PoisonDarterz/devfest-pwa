@@ -353,14 +353,13 @@ export const useConferenceData = ({
     } catch {}
   };
 
-  // Handle connecting a new friend via QR scan or NFC bump
-  const handleConnectFriend = async (identifier: string, method: 'QR Scan' | 'NFC Bump') => {
+  // Handle connecting a new friend via QR scan
+  const handleConnectFriend = async (identifier: string, method: 'QR Scan' | 'Direct Link' = 'QR Scan') => {
     try {
       const activeEmail = userProfile.email;
       const res = await ApiService.addFriend({
         userEmail: activeEmail,
         qrPayload: identifier,
-        nfcToken: identifier,
         friendEmail: identifier.includes('@') ? identifier : undefined,
         method,
       });

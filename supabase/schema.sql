@@ -346,13 +346,13 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- -----------------------------------------------------------------------------
--- 16. CONNECTIONS TABLE (Friends added via QR scan or NFC bump)
+-- 16. CONNECTIONS TABLE (Friends added via QR scan or direct link)
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.connections (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     friend_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-    method TEXT NOT NULL DEFAULT 'QR Scan', -- 'NFC Bump', 'QR Scan', 'Direct Link'
+    method TEXT NOT NULL DEFAULT 'QR Scan', -- 'QR Scan', 'Direct Link'
     created_at TIMESTAMPTZ DEFAULT now(),
     UNIQUE(user_id, friend_id)
 );

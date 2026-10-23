@@ -21,7 +21,6 @@ interface InfoModalsProps {
   faqs: FAQItem[];
   claimedStamps: string[];
   stampFeedback: string | null;
-  nfcMessage: string;
   activeSession: Session;
   userProfile: {
     name: string;
@@ -52,7 +51,6 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
   faqs,
   claimedStamps,
   stampFeedback,
-  nfcMessage,
   activeSession,
   userProfile,
   onClaimStampDemo,
@@ -133,7 +131,7 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
             {activeModal === 'venue_map' && 'Venue Map & Directions'}
             {activeModal === 'faq' && 'Frequently Asked Questions'}
             {activeModal === 'about_gdg' && 'About DevFest & GDG'}
-            {activeModal === 'friends' && 'NFC Bump & Friends'}
+            {activeModal === 'friends' && 'Networking & Friends'}
             {activeModal === 'session' && 'Session Details'}
             {activeModal === 'profile' && 'Attendee Profile'}
             {activeModal === 'notifications' && 'Conference Notifications'}
@@ -290,11 +288,13 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
         {activeModal === 'friends' && (
           <div className="space-y-4 text-center text-xs">
             <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-2xl space-y-2">
-              <p className="font-bold text-purple-300">Web NFC Bump Status</p>
-              <p className="text-slate-300">{nfcMessage}</p>
+              <p className="font-bold text-purple-300">Attendee Networking</p>
+              <p className="text-slate-300">
+                Scan another attendee's badge QR code using the in-app scanner to connect instantly!
+              </p>
             </div>
             <p className="text-slate-400">
-              Hold two Android devices back-to-back, or scan another attendee's profile QR code to add as a friend!
+              Connected attendees will appear in your Friends list with their role and social links.
             </p>
           </div>
         )}

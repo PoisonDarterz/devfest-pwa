@@ -13,7 +13,7 @@ export interface ParsedAttendeeKey {
 }
 
 /**
- * Parses any scanned QR payload or NFC text to extract the unique attendee key.
+ * Parses any scanned QR payload to extract the unique attendee key.
  * 
  * Supports:
  * - Full Luma Check-in URLs: https://luma.com/check-in/evt-...?pk=qgbP7Ial653qHmL

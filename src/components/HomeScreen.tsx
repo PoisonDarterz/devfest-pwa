@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { checkNFCSupport } from '../lib/nfc';
 import bgIcons from '../assets/bg-icons.svg';
 import ErrorBoundary from './common/ErrorBoundary';
 
@@ -101,8 +100,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onOpenAdmin, i
     savedSessionIds
   );
 
-  const nfcStatus = checkNFCSupport();
-
   // Automatically collapse tracklist if drawer is expanded to fullscreen modules
   useEffect(() => {
     if (sheetState !== 'home') {
@@ -177,9 +174,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onOpenAdmin, i
     await handleConnectFriend(clean, 'QR Scan');
   };
 
-  const handleNfcBump = async (token?: string) => {
-    const payload = token || userProfile.qrPayload || userProfile.email;
-    await handleConnectFriend(payload, 'NFC Bump');
+  const handleTriggerFriendDemo = async () => {
+    const demoPayload = 'https://luma.com/check-in/evt-Oe2V97Qj3BoILBV?pk=g-nIkeAve49hpxoQH';
+    await handleConnectFriend(demoPayload, 'QR Scan');
   };
 
   const handleDragEnd = (_: unknown, info: { offset: { y: number }; velocity: { y: number } }) => {
@@ -303,12 +300,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onOpenAdmin, i
                   onScanResult={handleScanResult}
                   onClearScan={() => setScanResult(null)}
                   onBackToBadge={() => setSheetState('scan_qr_1')}
-                  onNfcBump={handleNfcBump}
-                  onTriggerFriendDemo={() => handleNfcBump()}
+                  onTriggerFriendDemo={handleTriggerFriendDemo}
                   userName={userProfile.name}
                   userRole={userProfile.role}
                   qrPayload={userProfile.qrPayload}
-                  isNfcSupported={nfcStatus.isSupported}
                 />
               </ErrorBoundary>
             )}
@@ -367,7 +362,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onOpenAdmin, i
                 isLoading={isFriendsLoading}
                 initialSelectedFriend={selectedFriendDetails}
                 onBackToHome={() => setSheetState('home')}
-                onOpenQrOrNfc={() => setSheetState('scan_qr_1')}
+                onOpenQrScanner={() => setSheetState('scan_qr_1')}
               />
             )}
           </AnimatePresence>
@@ -391,7 +386,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onOpenAdmin, i
           faqs={faqs}
           claimedStamps={claimedStamps}
           stampFeedback={stampFeedback}
-          nfcMessage={nfcStatus.message}
           activeSession={activeSession}
           onClaimStampDemo={handleClaimStamp}
           onSimulateAlert={handleSimulateAlert}

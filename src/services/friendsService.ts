@@ -70,15 +70,14 @@ export const friendsService = {
     return [];
   },
 
-  // Add Friend via QR Scan or NFC Bump
+  // Add Friend via QR Scan
   async addFriend(params: {
     userEmail: string;
     userId?: string;
     friendId?: string;
     qrPayload?: string;
-    nfcToken?: string;
     friendEmail?: string;
-    method?: 'QR Scan' | 'NFC Bump';
+    method?: 'QR Scan' | 'Direct Link';
   }): Promise<{ success: boolean; friend?: FriendConnection; isMutual?: boolean; message: string }> {
     if (USE_NODE_BACKEND) {
       try {
@@ -136,10 +135,6 @@ export const friendsService = {
           .maybeSingle();
         friend = data;
       }
-      if (!friend && params.nfcToken) {
-        const { data } = await supabase.from('vw_profiles').select('*').eq('nfc_token', params.nfcToken).maybeSingle();
-        friend = data;
-      }
 
       if (!friend) {
         return { success: false, message: 'Attendee profile not found for this code.' };
@@ -159,18 +154,6 @@ export const friendsService = {
         },
         { onConflict: 'user_id,friend_id' }
       );
-
-      if (method === 'NFC Bump') {
-        await supabase.from('connections').upsert(
-          {
-            user_id: friend.id,
-            friend_id: user.id,
-            method: 'NFC Bump',
-            created_at: new Date().toISOString(),
-          },
-          { onConflict: 'user_id,friend_id' }
-        );
-      }
 
       const nameParts = (friend.full_name || 'Attendee').trim().split(/\s+/);
       const displayName =
@@ -197,11 +180,8 @@ export const friendsService = {
           method,
           connectedAt: new Date().toISOString(),
         },
-        isMutual: method === 'NFC Bump',
-        message:
-          method === 'NFC Bump'
-            ? `NFC Bump successful! Exchanged profiles with ${friend.full_name}.`
-            : `Connected with ${friend.full_name}!`,
+        isMutual: false,
+        message: `Connected with ${friend.full_name}!`,
       };
     } catch (err: any) {
       return { success: false, message: err?.message || 'Failed to save connection.' };

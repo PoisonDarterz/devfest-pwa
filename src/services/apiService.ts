@@ -4,7 +4,7 @@
  * Aggregates modularized services into a unified API layer for full backward compatibility:
  * - authService: User authentication, registration, profiles, whitelist
  * - sessionsService: Conference agenda, tracks, RSVP, attendee lists
- * - friendsService: Connections, NFC Bump, QR scan exchange, attendee details
+ * - friendsService: Connections, QR scan exchange, attendee details
  * - rewardsService: Booths, stamp collection, rewards catalog, blind box gacha
  * - notificationsService: Announcements, mark read, unread counts, broadcasts
  * - faqService: Conference FAQs

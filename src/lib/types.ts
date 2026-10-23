@@ -18,7 +18,6 @@ export interface UserProfile {
   bio?: string;
   githubUrl?: string;
   linkedinUrl?: string;
-  nfcToken?: string;
   ticketType?: string;
 }
 
@@ -38,7 +37,7 @@ export interface Connection {
   id: string;
   user: UserProfile;
   connectedAt: string;
-  method: 'NFC Bump' | 'QR Scan' | 'Direct Link';
+  method: 'QR Scan' | 'Direct Link';
 }
 
 export interface FriendConnection {

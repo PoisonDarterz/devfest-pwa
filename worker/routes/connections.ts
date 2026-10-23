@@ -165,12 +165,12 @@ connectionsRouter.get('/:userId', async (c) => {
 });
 
 /**
- * Add or exchange a friend connection via QR Scan or NFC Bump
+ * Add a friend connection via QR Scan
  */
 const handleAddConnection = async (c: any) => {
   const supabaseAdmin = getSupabaseAdmin(c.env);
   const body = await c.req.json().catch(() => ({}));
-  const { userId, userEmail, friendId, qrPayload, nfcToken, friendEmail, method = 'QR Scan' } = body;
+  const { userId, userEmail, friendId, qrPayload, friendEmail, method = 'QR Scan' } = body;
 
   if (!userId && !userEmail) {
     return c.json({ success: false, message: 'Active user identification (userId or userEmail) is required.' }, 400);
@@ -262,18 +262,6 @@ const handleAddConnection = async (c: any) => {
       }
     }
 
-    if (!friendProfile && nfcToken) {
-      const token = String(nfcToken).trim();
-      const { data } = await supabaseAdmin.from('profiles').select('*').eq('nfc_token', token).maybeSingle();
-      friendProfile = data;
-
-      // Also check if nfc token matches qr_payload
-      if (!friendProfile) {
-        const { data: byQr } = await supabaseAdmin.from('vw_profiles').select('*').eq('qr_payload', token).maybeSingle();
-        friendProfile = byQr;
-      }
-    }
-
     if (!friendProfile && friendEmail) {
       const normalizedEmail = String(friendEmail).trim().toLowerCase();
       const { data } = await supabaseAdmin.from('profiles').select('*').ilike('email', normalizedEmail).maybeSingle();
@@ -284,7 +272,7 @@ const handleAddConnection = async (c: any) => {
       return c.json(
         {
           success: false,
-          message: 'Could not find an attendee matching this QR code or NFC token.',
+          message: 'Could not find an attendee matching this QR code.',
         },
         404
       );
@@ -318,29 +306,13 @@ const handleAddConnection = async (c: any) => {
       return c.json({ success: false, message: 'Failed to record connection.' }, 500);
     }
 
-    let isMutual = false;
-    if (method === 'NFC Bump') {
-      await supabaseAdmin.from('connections').upsert(
-        {
-          user_id: friendProfile.id,
-          friend_id: activeUser.id,
-          method: 'NFC Bump',
-          created_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id,friend_id' }
-      );
-      isMutual = true;
-    }
-
     const formattedFriend = formatFriendProfile(friendProfile, connData?.[0]);
 
     return c.json({
       success: true,
       friend: formattedFriend,
-      isMutual,
-      message: isMutual
-        ? `NFC Bump successful! Exchanged profiles with ${friendProfile.full_name}.`
-        : `Connected with ${friendProfile.full_name}!`,
+      isMutual: false,
+      message: `Connected with ${friendProfile.full_name}!`,
     });
   } catch (err: any) {
     console.error('[Connections] Add connection error:', err);

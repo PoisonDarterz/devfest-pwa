@@ -58,7 +58,7 @@ export const CompleteProfileStep: React.FC<CompleteProfileStepProps> = ({
             Complete Your Profile
           </h3>
           <p className="text-[11px] text-slate-600">
-            Connect with attendees via NFC & QR by adding your details.
+            Connect with attendees via badge QR codes by adding your details.
           </p>
         </div>
       </div>

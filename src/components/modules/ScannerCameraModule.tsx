@@ -5,20 +5,16 @@ import { QRCodeSVG } from 'qrcode.react';
 import pinkFlower from '../../assets/pink-flower.svg';
 import bluePlus from '../../assets/blue-plus.svg';
 import redHeart from '../../assets/red-heart.svg';
-import { checkNFCSupport } from '../../lib/nfc';
-
 interface ScannerCameraModuleProps {
   scanResult: string | null;
   onScanResult: (decodedText: string) => void;
   onClearScan: () => void;
   onBackToBadge: () => void;
-  onNfcBump?: (payload?: string) => void;
   onTriggerFriendDemo: () => void;
   onTriggerBoothDemo?: () => void;
   userName?: string;
   userRole?: string;
   qrPayload?: string;
-  isNfcSupported?: boolean;
 }
 
 export const ScannerCameraModule: React.FC<ScannerCameraModuleProps> = ({
@@ -26,74 +22,16 @@ export const ScannerCameraModule: React.FC<ScannerCameraModuleProps> = ({
   onScanResult,
   onClearScan,
   onBackToBadge,
-  onNfcBump,
   onTriggerFriendDemo,
   onTriggerBoothDemo,
   userName = 'Zixu Cheah',
   userRole = 'Software Engineer',
   qrPayload = 'DEVFEST-KL-2026-ZIXU-CHEAH-SW',
-  isNfcSupported,
 }) => {
   const qrCodeRef = useRef<Html5Qrcode | null>(null);
   const isStartingRef = useRef(false);
   const [cameraState, setCameraState] = useState<'idle' | 'starting' | 'running' | 'error'>('starting');
   const [cameraErrorMessage, setCameraErrorMessage] = useState<string | null>(null);
-
-  const [nfcBumpFeedback, setNfcBumpFeedback] = useState<string | null>(null);
-  const [isNfcActive, setIsNfcActive] = useState(false);
-  const hasNfc = isNfcSupported ?? checkNFCSupport().isSupported;
-
-  // Initialize Web NFC Reader if supported
-  useEffect(() => {
-    let abortController: AbortController | null = null;
-
-    if ('NDEFReader' in window) {
-      try {
-        abortController = new AbortController();
-        const NDEF = (window as any).NDEFReader;
-        const ndef = new NDEF();
-
-        ndef
-          .scan({ signal: abortController.signal })
-          .then(() => {
-            setIsNfcActive(true);
-            ndef.onreading = (event: any) => {
-              if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
-              setNfcBumpFeedback('NFC Bump Detected! Exchanging profiles...');
-
-              const record = event?.message?.records?.[0];
-              let text = '';
-              if (record && record.recordType === 'text') {
-                const textDecoder = new TextDecoder(record.encoding || 'utf-8');
-                text = textDecoder.decode(record.data);
-              }
-
-              setTimeout(() => {
-                setNfcBumpFeedback(null);
-                if (onNfcBump) {
-                  onNfcBump(text || 'NFC-AMANDA-CLOUD');
-                } else if (text) {
-                  onScanResult(text);
-                } else {
-                  onTriggerFriendDemo();
-                }
-              }, 800);
-            };
-          })
-          .catch((err: any) => {
-            console.warn('Web NFC scanning unavailable or permission denied:', err);
-          });
-      } catch (err) {
-        console.warn('NDEFReader initialization error:', err);
-      }
-    }
-
-    return () => {
-      if (abortController) {
-        abortController.abort();
-      }
-    };
-  }, [onScanResult, onTriggerFriendDemo]);
 
   // Function to initialize and start the camera stream directly
   const startCameraStream = async () => {
@@ -186,26 +124,6 @@ export const ScannerCameraModule: React.FC<ScannerCameraModuleProps> = ({
     };
   }, [onScanResult]);
 
-  // Handle interactive NFC bump trigger / test simulation
-  const [bumpIndex, setBumpIndex] = useState(0);
-  const DEMO_BUMP_TOKENS = ['NFC-AMANDA-CLOUD', 'NFC-WEIKANG-AI', 'NFC-JUNYI-DEV', 'NFC-SARAH-TAN', 'NFC-AISHA-DEVOPS'];
-
-  const handleNfcBumpTap = () => {
-    if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
-    setNfcBumpFeedback('NFC Bump Detected! Exchanging profiles...');
-    const token = DEMO_BUMP_TOKENS[bumpIndex % DEMO_BUMP_TOKENS.length];
-    setBumpIndex((prev) => prev + 1);
-
-    setTimeout(() => {
-      setNfcBumpFeedback(null);
-      if (onNfcBump) {
-        onNfcBump(token);
-      } else {
-        onTriggerFriendDemo();
-      }
-    }, 900);
-  };
-
   const handleExitScanner = async () => {
     try {
       if (qrCodeRef.current?.isScanning) {
@@ -240,57 +158,20 @@ export const ScannerCameraModule: React.FC<ScannerCameraModuleProps> = ({
       </div>
 
       {/* ================================================================= */}
-      {/* 1. TOP NFC BUMP PROMPT & BLURRED PASS CARD BACKGROUND            */}
+      {/* 1. TOP PROMPT & BADGE PREVIEW                                     */}
       {/* ================================================================= */}
       <div className="grow flex flex-col items-center justify-start pt-1 pb-2 relative z-10 overflow-hidden">
-        {/* Contactless / NFC Wave Icon */}
-        <button
-          type="button"
-          onClick={handleNfcBumpTap}
-          className="group relative w-13 h-13 rounded-full border-2 border-purple-300/80 bg-purple-950/50 flex items-center justify-center text-purple-200 shadow-xl shadow-purple-900/50 hover:scale-105 active:scale-95 transition-all cursor-pointer"
-          title={hasNfc && isNfcActive ? 'Web NFC Ready - Tap to bump' : 'Tap to test NFC Bump profile exchange'}
-        >
-          {/* Active NFC status dot */}
-          {hasNfc && isNfcActive && (
-            <span
-              className="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border border-purple-900 animate-pulse"
-              title="NFC Ready"
-            />
-          )}
-
-          {/* Animated pulse halo */}
-          <div className="absolute inset-0 rounded-full bg-purple-400/20 animate-ping opacity-60 pointer-events-none" />
-
-          {/* 4 Concentric Contactless Arcs */}
-          <svg
-            className="w-6 h-6 transform rotate-90"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-          >
-            <path d="M7 16.5a6 6 0 0 1 0-9" />
-            <path d="M10 18.5a9 9 0 0 1 0-13" />
-            <path d="M13 20.5a12 12 0 0 1 0-17" />
-            <path d="M16 22.5a15 15 0 0 1 0-21" />
+        {/* Scan Badge Icon */}
+        <div className="w-13 h-13 rounded-full border-2 border-purple-300/80 bg-purple-950/50 flex items-center justify-center text-purple-200 shadow-xl shadow-purple-900/50">
+          <svg className="w-6 h-6 text-purple-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
           </svg>
-        </button>
+        </div>
 
-        {/* Italic NFC Instructions Text */}
-        <p
-          onClick={handleNfcBumpTap}
-          className="font-serif italic text-purple-200/90 text-[13px] leading-snug text-center mt-2.5 max-w-[210px] mx-auto select-none cursor-pointer hover:text-white transition-colors"
-        >
-          Gently tap phones together to exchange profiles
+        {/* Scan Badge Instructions Text */}
+        <p className="font-serif italic text-purple-200/90 text-[13px] leading-snug text-center mt-2.5 max-w-[220px] mx-auto select-none">
+          Scan attendee badge QR to exchange profiles
         </p>
-
-        {/* NFC Status Banner if bumping */}
-        {nfcBumpFeedback && (
-          <div className="mt-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold animate-pulse z-30">
-            {nfcBumpFeedback}
-          </div>
-        )}
 
         {/* SUBTLE BLURRED PASS BADGE IN THE BACKGROUND */}
         <div className="relative w-full max-w-[240px] mt-1 filter blur-[2px] opacity-40 scale-[0.82] pointer-events-none select-none">

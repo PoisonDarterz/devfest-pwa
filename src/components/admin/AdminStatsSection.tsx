@@ -49,8 +49,6 @@ export const AdminStatsSection: React.FC<AdminStatsSectionProps> = ({
   if (!stats) return null;
 
   const checkInRate = stats.totalUsers > 0 ? Math.round((stats.checkedInUsers / stats.totalUsers) * 100) : 0;
-  const nfcPct = stats.totalConnections > 0 ? Math.round((stats.nfcConnectionsCount / stats.totalConnections) * 100) : 0;
-  const qrPct = stats.totalConnections > 0 ? 100 - nfcPct : 0;
 
   // PRESENTATION / AUDIENCE BIG SCREEN MODE
   if (isPresentationMode) {
@@ -108,7 +106,7 @@ export const AdminStatsSection: React.FC<AdminStatsSectionProps> = ({
               {stats.totalConnections}
             </p>
             <p className="text-xs text-blue-300/80 font-semibold">
-              Via NFC Phone Bump & QR
+              Via Attendee Badge QR Scans
             </p>
           </div>
 
@@ -316,17 +314,13 @@ export const AdminStatsSection: React.FC<AdminStatsSectionProps> = ({
           </div>
           <div>
             <div className="text-3xl font-black text-blue-400 font-heading">{stats.totalConnections}</div>
-            <div className="flex items-center justify-between text-xs text-slate-400 mt-1">
-              <span>NFC: {stats.nfcConnectionsCount}</span>
-              <span>QR: {stats.qrConnectionsCount}</span>
+            <div className="text-xs text-slate-400 mt-1">
+              <span>Attendee Badge QR Scans</span>
             </div>
           </div>
           <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden flex">
             {stats.totalConnections > 0 ? (
-              <>
-                <div className="h-full bg-blue-500" style={{ width: `${nfcPct}%` }} title="NFC Bump" />
-                <div className="h-full bg-cyan-400" style={{ width: `${qrPct}%` }} title="QR Scan" />
-              </>
+              <div className="h-full bg-cyan-400 w-full" title="QR Scan" />
             ) : (
               <div className="h-full bg-slate-700 w-full" />
             )}
@@ -498,15 +492,12 @@ export const AdminStatsSection: React.FC<AdminStatsSectionProps> = ({
           {/* Networking Mode Ratio Indicator */}
           <div className="pt-2 border-t border-slate-800 space-y-1.5">
             <div className="flex justify-between text-[11px] text-slate-400">
-              <span>Connection Tech Breakdown</span>
-              <span>{nfcPct}% NFC • {qrPct}% QR</span>
+              <span>Connection Method</span>
+              <span>100% Badge QR Scan</span>
             </div>
             <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden flex">
               {stats.totalConnections > 0 ? (
-                <>
-                  <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: `${nfcPct}%` }} />
-                  <div className="h-full bg-emerald-400 transition-all duration-500" style={{ width: `${qrPct}%` }} />
-                </>
+                <div className="h-full bg-emerald-400 w-full" />
               ) : (
                 <div className="h-full bg-slate-700 w-full" />
               )}

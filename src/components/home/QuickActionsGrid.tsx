@@ -25,7 +25,7 @@ export const QuickActionsGrid: React.FC<QuickActionsGridProps> = ({
         <div className="w-13 h-13 rounded-full bg-[#2A6E3F]/80 text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform border border-white/10 active:scale-95">
           <QrScanIcon />
         </div>
-        <span className="text-[11px] font-bold text-slate-900">QR Code / NFC</span>
+        <span className="text-[11px] font-bold text-slate-900">Scan QR Code</span>
       </button>
 
       <button
