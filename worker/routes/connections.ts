@@ -231,11 +231,7 @@ const handleAddConnection = async (c: any) => {
         } catch {}
       }
 
-      if (!friendProfile) {
-        const { data } = await supabaseAdmin.from('profiles').select('*').eq('qr_payload', candidate).maybeSingle();
-        friendProfile = data;
-      }
-
+      // 1. Query by pkParam in vw_profiles (matches external_ref_id or qr_payload)
       if (!friendProfile && pkParam) {
         const { data } = await supabaseAdmin
           .from('vw_profiles')
@@ -245,6 +241,7 @@ const handleAddConnection = async (c: any) => {
         if (data) friendProfile = data;
       }
 
+      // 2. Query by candidate in vw_profiles (matches external_ref_id or qr_payload)
       if (!friendProfile) {
         const { data } = await supabaseAdmin
           .from('vw_profiles')
@@ -254,9 +251,10 @@ const handleAddConnection = async (c: any) => {
         if (data) friendProfile = data;
       }
 
+      // 3. Query by email if candidate contains @
       if (!friendProfile && candidate.includes('@')) {
         const { data } = await supabaseAdmin
-          .from('profiles')
+          .from('vw_profiles')
           .select('*')
           .ilike('email', candidate.toLowerCase())
           .maybeSingle();
@@ -269,8 +267,9 @@ const handleAddConnection = async (c: any) => {
       const { data } = await supabaseAdmin.from('profiles').select('*').eq('nfc_token', token).maybeSingle();
       friendProfile = data;
 
+      // Also check if nfc token matches qr_payload
       if (!friendProfile) {
-        const { data: byQr } = await supabaseAdmin.from('profiles').select('*').eq('qr_payload', token).maybeSingle();
+        const { data: byQr } = await supabaseAdmin.from('vw_profiles').select('*').eq('qr_payload', token).maybeSingle();
         friendProfile = byQr;
       }
     }

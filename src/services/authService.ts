@@ -185,7 +185,7 @@ export const authService = {
     }
 
     try {
-      const { data, error } = await supabase.from('profiles').select('*').eq('id', id).limit(1);
+      const { data, error } = await supabase.from('vw_profiles').select('*').eq('id', id).limit(1);
       if (!error && data && data.length > 0) {
         const p = data[0];
         return {
@@ -301,6 +301,12 @@ export const authService = {
 
       let profileId = profile.id || (crypto.randomUUID ? crypto.randomUUID() : '');
 
+      if (qrPayload) {
+        try {
+          await supabase.from('ticketing_whitelists').update({ qr_payload: qrPayload }).eq('email', cleanEmail);
+        } catch {}
+      }
+
       const { data, error } = await supabase
         .from('profiles')
         .upsert(
@@ -312,7 +318,6 @@ export const authService = {
             bio: cleanBio,
             github_url: cleanGithub,
             linkedin_url: cleanLinkedin,
-            qr_payload: qrPayload,
           },
           { onConflict: 'email' }
         )
@@ -492,7 +497,6 @@ export const authService = {
           bio: profile.bio || '',
           github_url: profile.githubUrl || '',
           linkedin_url: profile.linkedinUrl || '',
-          qr_payload: qrPayload,
         })
         .eq('email', cleanEmail)
         .select()
@@ -501,11 +505,21 @@ export const authService = {
       if (!error && data && data.length > 0) {
         const p = data[0];
         let existingTicketType = 'Standard Attendee';
+        let existingQrPayload = '';
         try {
           const stored = localStorage.getItem('devfest_auth_user');
           if (stored) {
-            existingTicketType = JSON.parse(stored).ticketType || existingTicketType;
+            const parsed = JSON.parse(stored);
+            existingTicketType = parsed.ticketType || existingTicketType;
+            existingQrPayload = parsed.qrPayload || '';
           }
+        } catch {}
+
+        // Fetch fresh Luma QR payload from vw_profiles or whitelist
+        try {
+          const { data: vwData } = await supabase.from('vw_profiles').select('qr_payload, ticket_type').eq('email', cleanEmail).maybeSingle();
+          if (vwData?.qr_payload) existingQrPayload = vwData.qr_payload;
+          if (vwData?.ticket_type) existingTicketType = vwData.ticket_type;
         } catch {}
 
         const updatedProfile: UserProfile = {
@@ -517,7 +531,7 @@ export const authService = {
           bio: p.bio || '',
           githubUrl: p.github_url || '',
           linkedinUrl: p.linkedin_url || '',
-          qrPayload: p.qr_payload || qrPayload,
+          qrPayload: existingQrPayload || qrPayload,
           ticketType: existingTicketType,
         };
         localStorage.setItem('devfest_auth_user', JSON.stringify(updatedProfile));
@@ -653,12 +667,12 @@ export const authService = {
       };
     }
 
-    // 2. Check if user already has a registered profile in profiles table
+    // 2. Check if user already has a registered profile in vw_profiles
     try {
       const { data: profileData, error: profError } = await supabase
-        .from('profiles')
+        .from('vw_profiles')
         .select('*')
-        .eq('email', cleanEmail)
+        .ilike('email', cleanEmail)
         .limit(1);
 
       if (!profError && profileData && profileData.length > 0) {
@@ -678,9 +692,9 @@ export const authService = {
             githubUrl: p.github_url || '',
             linkedinUrl: p.linkedin_url || '',
             qrPayload: p.qr_payload || '',
-            ticketType,
+            ticketType: p.ticket_type || ticketType,
           },
-          ticketType,
+          ticketType: p.ticket_type || ticketType,
           message: 'User profile found!',
           prefill,
         };

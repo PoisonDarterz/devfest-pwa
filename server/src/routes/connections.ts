@@ -216,13 +216,7 @@ const handleAddConnection = async (req: Request, res: Response): Promise<void> =
         } catch {}
       }
 
-      // 1. Query by direct profiles.qr_payload
-      if (!friendProfile) {
-        const { data } = await supabaseAdmin.from('profiles').select('*').eq('qr_payload', candidate).maybeSingle();
-        friendProfile = data;
-      }
-
-      // 2. Query by pkParam in vw_profiles (matches external_ref_id or qr_payload)
+      // 1. Query by pkParam in vw_profiles (matches external_ref_id or qr_payload)
       if (!friendProfile && pkParam) {
         const { data } = await supabaseAdmin
           .from('vw_profiles')
@@ -232,7 +226,7 @@ const handleAddConnection = async (req: Request, res: Response): Promise<void> =
         if (data) friendProfile = data;
       }
 
-      // 3. Query by candidate in vw_profiles (matches external_ref_id or qr_payload)
+      // 2. Query by candidate in vw_profiles (matches external_ref_id or qr_payload)
       if (!friendProfile) {
         const { data } = await supabaseAdmin
           .from('vw_profiles')
@@ -242,9 +236,9 @@ const handleAddConnection = async (req: Request, res: Response): Promise<void> =
         if (data) friendProfile = data;
       }
 
-      // 4. Query by email if candidate contains @
+      // 3. Query by email if candidate contains @
       if (!friendProfile && candidate.includes('@')) {
-        const { data } = await supabaseAdmin.from('profiles').select('*').ilike('email', candidate.toLowerCase()).maybeSingle();
+        const { data } = await supabaseAdmin.from('vw_profiles').select('*').ilike('email', candidate.toLowerCase()).maybeSingle();
         friendProfile = data;
       }
     }
@@ -257,7 +251,7 @@ const handleAddConnection = async (req: Request, res: Response): Promise<void> =
 
       // Also check if nfc token matches qr_payload
       if (!friendProfile) {
-        const { data: byQr } = await supabaseAdmin.from('profiles').select('*').eq('qr_payload', token).maybeSingle();
+        const { data: byQr } = await supabaseAdmin.from('vw_profiles').select('*').eq('qr_payload', token).maybeSingle();
         friendProfile = byQr;
       }
     }

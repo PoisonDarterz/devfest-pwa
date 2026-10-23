@@ -1,7 +1,6 @@
 -- =============================================================================
--- GOOGLE DEVFEST KUALA LUMPUR 2026 - VERSATILE DATABASE SCHEMA
--- Versatile Ticket Validation (Ticket2u / Peatix / Custom CSV Email Whitelist)
--- Execute this SQL script in your Supabase SQL Editor or PostgreSQL Database.
+-- GOOGLE DEVFEST KUALA LUMPUR 2026 - UNIFIED DATABASE SCHEMA
+-- Complete, production-ready schema matching the live Supabase database.
 -- =============================================================================
 
 -- Enable UUID extension
@@ -9,23 +8,22 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- -----------------------------------------------------------------------------
 -- 1. TICKETING WHITELISTS TABLE (Platform-Agnostic Ticketed Email List)
--- Organizers import emails from Ticket2u, Peatix, or CSV exports.
+-- Organizers import attendees from Luma, Peatix, Ticket2u, or CSV exports.
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.ticketing_whitelists (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email TEXT UNIQUE NOT NULL,
     ticket_type TEXT NOT NULL DEFAULT 'Standard Attendee', -- 'VIP Attendee', 'Standard Attendee', 'Walk-in Attendee', 'Speaker', 'Organizer', 'Sponsor', 'Core Team'
-    external_ref_id TEXT, -- e.g. Luma guest_id or ticket key
+    external_ref_id TEXT, -- e.g. Luma guest_id (gst-...) or ticket key
     qr_payload TEXT, -- Full Luma QR check-in URL
-    full_name TEXT, -- Pre-filled name from Luma CSV
-    job_title TEXT, -- Pre-filled Job Title from Luma CSV
-    company TEXT, -- Pre-filled Company / Institution from Luma CSV
-    tshirt_size TEXT, -- T-shirt size
+    full_name TEXT, -- Pre-filled full name from Luma CSV
+    job_title TEXT, -- Pre-filled Job Title from Luma survey
+    company TEXT, -- Pre-filled Company / Institution from Luma survey
+    tshirt_size TEXT, -- T-Shirt Size
     notes TEXT,
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Index for fast lowercased email matching during registration
 CREATE INDEX IF NOT EXISTS idx_ticketing_whitelists_email ON public.ticketing_whitelists(LOWER(email));
 CREATE INDEX IF NOT EXISTS idx_ticketing_whitelists_external_ref_id ON public.ticketing_whitelists(external_ref_id);
 CREATE INDEX IF NOT EXISTS idx_ticketing_whitelists_qr_payload ON public.ticketing_whitelists(qr_payload);
@@ -34,7 +32,7 @@ CREATE INDEX IF NOT EXISTS idx_ticketing_whitelists_qr_payload ON public.ticketi
 -- 2. USER PROFILES TABLE (Filled in by participant upon registration)
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.profiles (
-    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email TEXT UNIQUE NOT NULL,
     full_name TEXT NOT NULL,
     company_role TEXT,
@@ -46,15 +44,13 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     is_ticket_verified BOOLEAN DEFAULT false,
     is_checked_in BOOLEAN DEFAULT false,
     checked_in_at TIMESTAMPTZ,
-    qr_payload TEXT UNIQUE,
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Index for NFC token lookups
 CREATE INDEX IF NOT EXISTS idx_profiles_nfc_token ON public.profiles(nfc_token);
 
 -- -----------------------------------------------------------------------------
--- 2b. PROFILES VIEW (Dynamically joins ticket_type from ticketing_whitelists)
+-- 3. PROFILES VIEW (Dynamically joins ticket_type, Luma QR, and company info)
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE VIEW public.vw_profiles AS
 SELECT 
@@ -70,7 +66,7 @@ SELECT
     p.is_ticket_verified, 
     p.is_checked_in, 
     p.checked_in_at,
-    COALESCE(p.qr_payload, tw.qr_payload) AS qr_payload, 
+    tw.qr_payload AS qr_payload, 
     p.created_at,
     COALESCE(tw.ticket_type, 'Standard Attendee') AS ticket_type, 
     tw.external_ref_id,
@@ -82,7 +78,7 @@ LEFT JOIN public.ticketing_whitelists tw ON LOWER(p.email) = LOWER(tw.email);
 GRANT SELECT ON public.vw_profiles TO anon, authenticated, service_role;
 
 -- -----------------------------------------------------------------------------
--- 3. EMAIL VALIDATION FUNCTION (RPC Endpoint for PWA Registration)
+-- 4. EMAIL VALIDATION FUNCTION (RPC Endpoint for PWA Registration)
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.validate_registration_email(user_email TEXT)
 RETURNS TABLE (
@@ -107,7 +103,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- -----------------------------------------------------------------------------
--- 4. SESSIONS TABLE (Conference Agenda & Timetable)
+-- 5. SESSIONS TABLE (Conference Agenda & Timetable)
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -125,7 +121,7 @@ CREATE TABLE IF NOT EXISTS public.sessions (
 );
 
 -- -----------------------------------------------------------------------------
--- 4.1 USER SAVED SESSIONS TABLE (Conference Session Bookmarks)
+-- 6. USER SAVED SESSIONS TABLE (Conference Session Bookmarks)
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.user_saved_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -139,7 +135,7 @@ CREATE TABLE IF NOT EXISTS public.user_saved_sessions (
 CREATE INDEX IF NOT EXISTS idx_user_saved_sessions_email ON public.user_saved_sessions(LOWER(user_email));
 
 -- -----------------------------------------------------------------------------
--- 11. NOTIFICATIONS TABLE (Push Alerts & Lucky Draw Broadcasts)
+-- 7. NOTIFICATIONS TABLE (Push Alerts & Lucky Draw Broadcasts)
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -152,7 +148,7 @@ CREATE TABLE IF NOT EXISTS public.notifications (
 );
 
 -- -----------------------------------------------------------------------------
--- 11.1 USER NOTIFICATION READS TABLE (Tracks read state per user)
+-- 8. USER NOTIFICATION READS TABLE (Tracks read state per user)
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.user_notification_reads (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -165,7 +161,24 @@ CREATE TABLE IF NOT EXISTS public.user_notification_reads (
 CREATE INDEX IF NOT EXISTS idx_user_notification_reads ON public.user_notification_reads(LOWER(user_email));
 
 -- -----------------------------------------------------------------------------
--- 5. BOOTHS TABLE (Sponsor & Partner Exhibition Booths)
+-- 8.1 PUSH SUBSCRIPTIONS TABLE (Web Push VAPID Subscriptions)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.push_subscriptions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_email TEXT NOT NULL,
+    endpoint TEXT NOT NULL UNIQUE,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    user_agent TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_email ON public.push_subscriptions(LOWER(user_email));
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_endpoint ON public.push_subscriptions(endpoint);
+
+-- -----------------------------------------------------------------------------
+-- 9. BOOTHS TABLE (Sponsor & Partner Exhibition Booths)
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.booths (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -181,7 +194,7 @@ CREATE TABLE IF NOT EXISTS public.booths (
 );
 
 -- -----------------------------------------------------------------------------
--- 6. USER STAMPS TABLE (Passport stamps collected by visiting booths)
+-- 10. USER STAMPS TABLE (Passport stamps collected by visiting booths)
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.user_stamps (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -192,13 +205,13 @@ CREATE TABLE IF NOT EXISTS public.user_stamps (
 );
 
 -- -----------------------------------------------------------------------------
--- 7. REWARDS TABLE (Blind Box Perks & Swag Catalogue with Drop Weights)
+-- 11. REWARDS TABLE (Blind Box Perks & Swag Catalogue with Drop Weights)
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.rewards (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title TEXT NOT NULL,
     subtitle TEXT,
-    required_stamps INT NOT NULL DEFAULT 5,
+    required_stamps INT NOT NULL DEFAULT 1,
     total_quantity INT DEFAULT 100,
     remaining_quantity INT DEFAULT 100,
     drop_weight INT NOT NULL DEFAULT 10, -- Higher weight = higher drop chance
@@ -209,7 +222,7 @@ CREATE TABLE IF NOT EXISTS public.rewards (
 );
 
 -- -----------------------------------------------------------------------------
--- 8. BLIND BOXES TABLE (Gacha Draw Configurations)
+-- 12. BLIND BOXES TABLE (Gacha Draw Configurations)
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.blind_boxes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -221,7 +234,7 @@ CREATE TABLE IF NOT EXISTS public.blind_boxes (
 );
 
 -- -----------------------------------------------------------------------------
--- 9. USER REWARDS TABLE (Tracks Entry Swag & unlocked participant rewards)
+-- 13. USER REWARDS TABLE (Tracks Entry Swag & unlocked participant rewards)
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.user_rewards (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -241,17 +254,17 @@ CREATE INDEX IF NOT EXISTS idx_user_rewards_user_id ON public.user_rewards(user_
 CREATE UNIQUE INDEX IF NOT EXISTS idx_user_rewards_entry_swag ON public.user_rewards(user_id, reward_type) WHERE (reward_type = 'entry_swag');
 
 -- -----------------------------------------------------------------------------
--- 9.1 USER REDEMPTIONS TABLE (Reward redemption audit log)
+-- 14. USER REDEMPTIONS TABLE (Reward redemption audit log)
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.user_redemptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-    reward_id UUID REFERENCES public.rewards(id) ON DELETE SET NULL,
+    reward_id UUID NOT NULL REFERENCES public.rewards(id) ON DELETE CASCADE,
     redeemed_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- -----------------------------------------------------------------------------
--- 10. ATOMIC BLIND BOX GACHA DRAW STORED PROCEDURE (Odds & Stock Safe)
+-- 15. ATOMIC BLIND BOX GACHA DRAW STORED PROCEDURE (Odds & Stock Safe)
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.draw_blind_box_reward(
     p_user_id UUID,
@@ -333,7 +346,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- -----------------------------------------------------------------------------
--- 9. CONNECTIONS TABLE (Friends added via QR scan or NFC bump)
+-- 16. CONNECTIONS TABLE (Friends added via QR scan or NFC bump)
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.connections (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -345,7 +358,7 @@ CREATE TABLE IF NOT EXISTS public.connections (
 );
 
 -- -----------------------------------------------------------------------------
--- 10. FAQS TABLE (Frequently Asked Questions & Venue Guide)
+-- 17. FAQS TABLE (Frequently Asked Questions & Venue Guide)
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.faqs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -355,20 +368,60 @@ CREATE TABLE IF NOT EXISTS public.faqs (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Enable RLS and policies for profiles & saved sessions
+-- -----------------------------------------------------------------------------
+-- 18. ROW LEVEL SECURITY (RLS) POLICIES
+-- -----------------------------------------------------------------------------
+-- Profiles
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read access to profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Allow public select to profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Allow public insert to profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Allow public update to profiles" ON public.profiles;
+
 CREATE POLICY "Allow public select to profiles" ON public.profiles FOR SELECT USING (true);
 CREATE POLICY "Allow public insert to profiles" ON public.profiles FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow public update to profiles" ON public.profiles FOR UPDATE USING (true);
 
+-- User Saved Sessions (Bookmarks)
 ALTER TABLE public.user_saved_sessions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read and write access to user_saved_sessions" ON public.user_saved_sessions;
 CREATE POLICY "Allow public read and write access to user_saved_sessions" ON public.user_saved_sessions FOR ALL USING (true) WITH CHECK (true);
 
--- Enable RLS and policies for notifications & user reads
+-- Notifications
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read access to notifications" ON public.notifications;
+DROP POLICY IF EXISTS "Allow insert access to notifications" ON public.notifications;
 CREATE POLICY "Allow public read access to notifications" ON public.notifications FOR SELECT USING (true);
 CREATE POLICY "Allow insert access to notifications" ON public.notifications FOR INSERT WITH CHECK (true);
 
+-- User Notification Reads
 ALTER TABLE public.user_notification_reads ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read and write access to user_notification_reads" ON public.user_notification_reads;
 CREATE POLICY "Allow public read and write access to user_notification_reads" ON public.user_notification_reads FOR ALL USING (true) WITH CHECK (true);
 
+-- Push Subscriptions
+ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public insert and update for push subscriptions" ON public.push_subscriptions;
+CREATE POLICY "Allow public insert and update for push subscriptions" ON public.push_subscriptions FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+-- Booths
+ALTER TABLE public.booths ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read access to booths" ON public.booths;
+CREATE POLICY "Allow public read access to booths" ON public.booths FOR SELECT USING (true);
+
+-- User Stamps
+ALTER TABLE public.user_stamps ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read user_stamps" ON public.user_stamps;
+DROP POLICY IF EXISTS "Allow public insert user_stamps" ON public.user_stamps;
+CREATE POLICY "Allow public read user_stamps" ON public.user_stamps FOR SELECT USING (true);
+CREATE POLICY "Allow public insert user_stamps" ON public.user_stamps FOR INSERT WITH CHECK (true);
+
+-- Sessions
+ALTER TABLE public.sessions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read access to sessions" ON public.sessions;
+CREATE POLICY "Allow public read access to sessions" ON public.sessions FOR SELECT USING (true);
+
+-- FAQs
+ALTER TABLE public.faqs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read access to faqs" ON public.faqs;
+CREATE POLICY "Allow public read access to faqs" ON public.faqs FOR SELECT USING (true);

@@ -219,12 +219,12 @@ authRouter.post('/check-status', async (req: Request, res: Response): Promise<vo
     return;
   }
 
-  // Check Supabase database directly for registered profile
+  // Check Supabase database directly for registered profile via vw_profiles
   try {
     const { data: profData, error: profErr } = await supabaseAdmin
-      .from('profiles')
+      .from('vw_profiles')
       .select('*')
-      .eq('email', cleanEmail)
+      .ilike('email', cleanEmail)
       .limit(1);
 
     if (!profErr && profData && profData.length > 0) {
@@ -244,9 +244,9 @@ authRouter.post('/check-status', async (req: Request, res: Response): Promise<vo
           githubUrl: p.github_url || '',
           linkedinUrl: p.linkedin_url || '',
           qrPayload: p.qr_payload || wl.qrPayload || '',
-          ticketType: wl.ticketType || 'Standard Attendee',
+          ticketType: p.ticket_type || wl.ticketType || 'Standard Attendee',
         },
-        ticketType: wl.ticketType || 'Standard Attendee',
+        ticketType: p.ticket_type || wl.ticketType || 'Standard Attendee',
         message: 'User profile found in database!',
       });
       return;
@@ -292,9 +292,9 @@ authRouter.post('/login', async (req: Request, res: Response): Promise<void> => 
 
   try {
     const { data, error } = await supabaseAdmin
-      .from('profiles')
+      .from('vw_profiles')
       .select('*')
-      .eq('email', cleanEmail)
+      .ilike('email', cleanEmail)
       .limit(1);
 
     if (error) {
@@ -323,7 +323,7 @@ authRouter.post('/login', async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    const { ticketType } = await checkWhitelistInDb(cleanEmail);
+    const { ticketType, qrPayload: wlQr } = await checkWhitelistInDb(cleanEmail);
 
     const user = {
       id: p.id,
@@ -334,8 +334,8 @@ authRouter.post('/login', async (req: Request, res: Response): Promise<void> => 
       bio: p.bio || '',
       githubUrl: p.github_url || '',
       linkedinUrl: p.linkedin_url || '',
-      qrPayload: p.qr_payload || '',
-      ticketType: ticketType || 'Standard Attendee',
+      qrPayload: p.qr_payload || wlQr || '',
+      ticketType: p.ticket_type || ticketType || 'Standard Attendee',
     };
 
     const token = generateToken(user);
@@ -450,6 +450,18 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
 
   const resolvedQrPayload = qrPayload?.trim() || wl.qrPayload || generateAttendeeQrPayload(name);
 
+  // If whitelist entry exists without a qr_payload, update whitelist with the resolved Luma/generated QR
+  if (!wl.qrPayload && resolvedQrPayload) {
+    try {
+      await supabaseAdmin
+        .from('ticketing_whitelists')
+        .update({ qr_payload: resolvedQrPayload })
+        .eq('email', cleanEmail);
+    } catch (e) {
+      console.warn('Could not update whitelist qr_payload:', e);
+    }
+  }
+
   const upsertData: Record<string, any> = {
     id: profileId,
     email: cleanEmail,
@@ -458,7 +470,6 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
     bio: bio.trim(),
     github_url: githubUrl?.trim() || '',
     linkedin_url: linkedinUrl.trim(),
-    qr_payload: resolvedQrPayload,
     is_ticket_verified: true,
   };
 
@@ -486,7 +497,7 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
         bio: p.bio || '',
         githubUrl: p.github_url || '',
         linkedinUrl: p.linkedin_url || '',
-        qrPayload: p.qr_payload,
+        qrPayload: wl.qrPayload || resolvedQrPayload,
         ticketType: ticketType || 'Standard Attendee',
       };
 
@@ -523,7 +534,7 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
             bio: p.bio || '',
             githubUrl: p.github_url || '',
             linkedinUrl: p.linkedin_url || '',
-            qrPayload: p.qr_payload,
+            qrPayload: wl.qrPayload || resolvedQrPayload,
             ticketType: ticketType || 'Standard Attendee',
           };
           const token = generateToken(user);
@@ -563,14 +574,14 @@ authRouter.get('/me', async (req: Request, res: Response): Promise<void> => {
     const cleanEmail = decoded.email.toLowerCase();
 
     const { data, error } = await supabaseAdmin
-      .from('profiles')
+      .from('vw_profiles')
       .select('*')
-      .eq('email', cleanEmail)
+      .ilike('email', cleanEmail)
       .limit(1);
 
     if (!error && data && data.length > 0) {
       const p = data[0];
-      const { ticketType } = await checkWhitelistInDb(cleanEmail);
+      const { ticketType, qrPayload: wlQr } = await checkWhitelistInDb(cleanEmail);
       res.json({
         success: true,
         user: {
@@ -582,8 +593,8 @@ authRouter.get('/me', async (req: Request, res: Response): Promise<void> => {
           bio: p.bio || '',
           githubUrl: p.github_url || '',
           linkedinUrl: p.linkedin_url || '',
-          qrPayload: p.qr_payload || '',
-          ticketType: ticketType || 'Standard Attendee',
+          qrPayload: p.qr_payload || wlQr || '',
+          ticketType: p.ticket_type || ticketType || 'Standard Attendee',
         },
       });
       return;
@@ -602,10 +613,10 @@ authRouter.get('/profile/:id', async (req: Request, res: Response): Promise<void
   const { id } = req.params;
 
   try {
-    const { data, error } = await supabaseAdmin.from('profiles').select('*').eq('id', id).limit(1);
+    const { data, error } = await supabaseAdmin.from('vw_profiles').select('*').eq('id', id).limit(1);
     if (!error && data && data.length > 0) {
       const profile = data[0];
-      const { ticketType } = await checkWhitelistInDb(profile.email);
+      const { ticketType, qrPayload: wlQr } = await checkWhitelistInDb(profile.email);
       res.json({
         id: profile.id,
         name: profile.full_name,
@@ -615,8 +626,8 @@ authRouter.get('/profile/:id', async (req: Request, res: Response): Promise<void
         bio: profile.bio || '',
         githubUrl: profile.github_url || '',
         linkedinUrl: profile.linkedin_url || '',
-        qrPayload: profile.qr_payload || '',
-        ticketType: ticketType || 'Standard Attendee',
+        qrPayload: profile.qr_payload || wlQr || '',
+        ticketType: profile.ticket_type || ticketType || 'Standard Attendee',
       });
       return;
     }
@@ -663,7 +674,7 @@ const handleUpdateProfile = async (req: Request, res: Response): Promise<void> =
     }
 
     const currentProfile = existingProfiles[0];
-    const newQrPayload = currentProfile.qr_payload || generateAttendeeQrPayload(name);
+    const { ticketType, qrPayload: wlQr } = await checkWhitelistInDb(cleanEmail);
 
     // 2. Perform UPDATE on the profile row
     const { data: updatedData, error: updateErr } = await supabaseAdmin
@@ -674,7 +685,6 @@ const handleUpdateProfile = async (req: Request, res: Response): Promise<void> =
         bio: bio !== undefined ? bio.trim() : (currentProfile.bio || ''),
         github_url: githubUrl !== undefined ? githubUrl.trim() : (currentProfile.github_url || ''),
         linkedin_url: linkedinUrl !== undefined ? linkedinUrl.trim() : (currentProfile.linkedin_url || ''),
-        qr_payload: newQrPayload,
       })
       .eq('email', cleanEmail)
       .select()
@@ -701,8 +711,8 @@ const handleUpdateProfile = async (req: Request, res: Response): Promise<void> =
       bio: p.bio || '',
       githubUrl: p.github_url || '',
       linkedinUrl: p.linkedin_url || '',
-      qrPayload: p.qr_payload || newQrPayload,
-      ticketType: (await checkWhitelistInDb(cleanEmail)).ticketType || 'Standard Attendee',
+      qrPayload: wlQr || '',
+      ticketType: ticketType || 'Standard Attendee',
     };
 
     const token = generateToken(updatedUser);

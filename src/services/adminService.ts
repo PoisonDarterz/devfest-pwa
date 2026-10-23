@@ -75,7 +75,7 @@ export const adminService = {
         sessionsRes,
         boothsRes,
       ] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, company_role, email, is_checked_in, qr_payload'),
+        supabase.from('vw_profiles').select('id, full_name, company_role, email, is_checked_in, qr_payload'),
         supabase.from('ticketing_whitelists').select('id', { count: 'exact', head: true }),
         supabase.from('connections').select('id, user_id, friend_id, method'),
         supabase.from('user_stamps').select('id, user_id, booth_id'),
