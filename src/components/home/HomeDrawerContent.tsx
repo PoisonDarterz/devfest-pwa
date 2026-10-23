@@ -125,6 +125,13 @@ export const HomeDrawerContent: React.FC<HomeDrawerContentProps> = ({
           <span>FAQ & Info</span>
         </button>
       </div>
+
+      {/* Footer Attribution */}
+      <div className="pt-2 pb-0.5 text-center shrink-0">
+        <p className="text-[10.5px] text-slate-500 font-medium tracking-tight">
+          Developed by <span className="text-slate-400 font-semibold">Jonas Chuan</span> , Supported by <span className="text-slate-400 font-semibold">AnnexHub</span>
+        </p>
+      </div>
     </motion.div>
   );
 };
