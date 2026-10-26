@@ -266,7 +266,7 @@ const handleAddConnection = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    // 4. Save primary connection (Active User -> Friend)
+    // 4. Save mutual connections so both attendees appear in each other's friends list
     const { data: connData, error: connError } = await supabaseAdmin
       .from('connections')
       .upsert({
@@ -283,12 +283,22 @@ const handleAddConnection = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
+    // Reciprocal connection (Friend -> Active User)
+    await supabaseAdmin
+      .from('connections')
+      .upsert({
+        user_id: friendProfile.id,
+        friend_id: activeUser.id,
+        method,
+        created_at: new Date().toISOString(),
+      }, { onConflict: 'user_id,friend_id' });
+
     const formattedFriend = formatFriendProfile(friendProfile, connData?.[0]);
 
     res.json({
       success: true,
       friend: formattedFriend,
-      isMutual: false,
+      isMutual: true,
       message: `Connected with ${friendProfile.full_name}!`,
     });
   } catch (err: any) {

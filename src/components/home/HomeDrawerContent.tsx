@@ -3,25 +3,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 import pinkFlower from '../../assets/pink-flower.svg';
 import yellowArrow from '../../assets/yellow-arrow.svg';
 import greenHashtag from '../../assets/green-hashtag.svg';
-import { GiftIcon, HelpIcon } from '../common/Icons';
 import type { Session } from '../../lib/types';
 
 interface HomeDrawerContentProps {
   activeUpcomingSession: Session | null;
   onSelectUpcomingSession: (session: Session) => void;
   onOpenFriends: () => void;
-  onOpenRewards: () => void;
-  onOpenFaq: () => void;
-  isWalkIn?: boolean;
 }
 
 export const HomeDrawerContent: React.FC<HomeDrawerContentProps> = ({
   activeUpcomingSession,
   onSelectUpcomingSession,
   onOpenFriends,
-  onOpenRewards,
-  onOpenFaq,
-  isWalkIn,
 }) => {
   return (
     <motion.div
@@ -99,35 +92,8 @@ export const HomeDrawerContent: React.FC<HomeDrawerContentProps> = ({
         </div>
       </div>
 
-      {/* Two Circular/Pill Bottom Action Buttons */}
-      <div className="flex items-center gap-3 overflow-x-auto pb-1 scrollbar-none shrink-0 pt-2">
-        <button
-          onClick={onOpenRewards}
-          className="flex items-center gap-2 px-4 py-3 rounded-full bg-[#EAE4D9] text-[#1C1D21] font-bold text-xs shadow-lg hover:scale-105 transition-transform shrink-0 active:scale-95 cursor-pointer relative"
-        >
-          <GiftIcon />
-          <span>Rewards</span>
-          {isWalkIn && (
-            <span
-              className="text-[10px] ml-0.5"
-              title="Rewards restricted for Walk-in passes"
-            >
-              🔒
-            </span>
-          )}
-        </button>
-
-        <button
-          onClick={onOpenFaq}
-          className="flex items-center gap-2 px-4 py-3 rounded-full bg-[#EAE4D9] text-[#1C1D21] font-bold text-xs shadow-lg hover:scale-105 transition-transform shrink-0 active:scale-95 cursor-pointer"
-        >
-          <HelpIcon />
-          <span>FAQ & Info</span>
-        </button>
-      </div>
-
       {/* Footer Attribution */}
-      <div className="pt-2 pb-0.5 text-center shrink-0">
+      <div className="pt-4 pb-1 text-center shrink-0">
         <p className="text-[10.5px] text-slate-500 font-medium tracking-tight">
           Developed by <span className="text-slate-400 font-semibold">Jonas Chuan</span> , Supported by <span className="text-slate-400 font-semibold">AnnexHub</span>
         </p>

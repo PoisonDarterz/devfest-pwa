@@ -204,7 +204,18 @@ export const useConferenceData = ({
       }
     }
     loadInitialData();
-  }, [initialUser, userProfile.email]);
+  }, [initialUser?.email, userProfile.email]);
+
+  // Keep local userProfile in sync if initialUser is updated from App auth restoration
+  useEffect(() => {
+    if (initialUser) {
+      setUserProfile((prev) => ({
+        ...prev,
+        ...initialUser,
+        ticketType: initialUser.ticketType || prev.ticketType || 'Standard Attendee',
+      }));
+    }
+  }, [initialUser]);
 
   // Real-time & periodic sync for live broadcast notifications
   useEffect(() => {

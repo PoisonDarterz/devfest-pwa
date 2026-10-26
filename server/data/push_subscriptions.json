@@ -7,5 +7,14 @@
     "auth": "a29aCZfxF_6_uw_x884Bug",
     "user_agent": "Mozilla/5.0 (Linux; Android 16; Pixel 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Mobile Safari/537.36",
     "created_at": "2026-10-22T14:40:27.234Z"
+  },
+  {
+    "id": "sub_1792750561007_9yd2y",
+    "user_email": "jc.chuan.0303@gmail.com",
+    "endpoint": "https://fcm.googleapis.com/fcm/send/f8DiWs0iGCQ:APA91bFe4MVwbq9RZ2W_Bb2cyOM3MTQ336tK1uEBDl8adPrDs38UGXqNcrBeTuOk58lcT4DW5-xgycabQWFbzX9s18uEdOkNnr49JyzTZ8k3EzS0yMJRonQw5adrAtT_Cq7sD9P-gMtC",
+    "p256dh": "BFIDfJHM5K0n3-kaU5t_7QeWqeiwuPNTxKv4chK3WfN62QfcgH4QYVDvymwkC9R5YWXsvXxFOBZEdDxvB3Yn7x4",
+    "auth": "d0IOYNks4lT7niqOgwYjZw",
+    "user_agent": "Mozilla/5.0 (Linux; Android 16; Pixel 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Mobile Safari/537.36",
+    "created_at": "2026-10-23T10:16:01.007Z"
   }
 ]

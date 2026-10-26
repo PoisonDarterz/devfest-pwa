@@ -306,12 +306,22 @@ const handleAddConnection = async (c: any) => {
       return c.json({ success: false, message: 'Failed to record connection.' }, 500);
     }
 
+    // Reciprocal connection (Friend -> Active User) so both appear in each other's friends list
+    await supabaseAdmin
+      .from('connections')
+      .upsert({
+        user_id: friendProfile.id,
+        friend_id: activeUser.id,
+        method,
+        created_at: new Date().toISOString(),
+      }, { onConflict: 'user_id,friend_id' });
+
     const formattedFriend = formatFriendProfile(friendProfile, connData?.[0]);
 
     return c.json({
       success: true,
       friend: formattedFriend,
-      isMutual: false,
+      isMutual: true,
       message: `Connected with ${friendProfile.full_name}!`,
     });
   } catch (err: any) {

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Html5Qrcode } from 'html5-qrcode';
 import { QRCodeSVG } from 'qrcode.react';
+import { ArrowLeftIcon } from '../common/Icons';
 import pinkFlower from '../../assets/pink-flower.svg';
 import bluePlus from '../../assets/blue-plus.svg';
 import redHeart from '../../assets/red-heart.svg';
@@ -10,7 +11,6 @@ interface ScannerCameraModuleProps {
   onScanResult: (decodedText: string) => void;
   onClearScan: () => void;
   onBackToBadge: () => void;
-  onTriggerFriendDemo: () => void;
   onTriggerBoothDemo?: () => void;
   userName?: string;
   userRole?: string;
@@ -22,7 +22,6 @@ export const ScannerCameraModule: React.FC<ScannerCameraModuleProps> = ({
   onScanResult,
   onClearScan,
   onBackToBadge,
-  onTriggerFriendDemo,
   onTriggerBoothDemo,
   userName = 'Zixu Cheah',
   userRole = 'Software Engineer',
@@ -142,25 +141,10 @@ export const ScannerCameraModule: React.FC<ScannerCameraModuleProps> = ({
       transition={{ duration: 0.2 }}
       className="relative flex flex-col h-full w-full overflow-hidden text-white select-none bg-gradient-to-b from-[#2A1545] via-[#351C57] to-[#190F28]"
     >
-      {/* Top Header Bar: Clean Close Control */}
-      <div className="flex items-center justify-end px-3 pt-1 pb-1 z-30 shrink-0">
-        <button
-          type="button"
-          onClick={handleExitScanner}
-          className="p-1.5 rounded-full bg-slate-900/60 text-purple-200 hover:text-white transition-colors cursor-pointer border border-purple-400/20"
-          title="Close"
-          aria-label="Close"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-
       {/* ================================================================= */}
       {/* 1. TOP PROMPT & BADGE PREVIEW                                     */}
       {/* ================================================================= */}
-      <div className="grow flex flex-col items-center justify-start pt-1 pb-2 relative z-10 overflow-hidden">
+      <div className="grow flex flex-col items-center justify-start pt-3 pb-2 relative z-10 overflow-hidden">
         {/* Scan Badge Icon */}
         <div className="w-13 h-13 rounded-full border-2 border-purple-300/80 bg-purple-950/50 flex items-center justify-center text-purple-200 shadow-xl shadow-purple-900/50">
           <svg className="w-6 h-6 text-purple-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -276,20 +260,21 @@ export const ScannerCameraModule: React.FC<ScannerCameraModuleProps> = ({
           )}
         </div>
 
-        {/* Demo Triggers for testing */}
-        <div className="flex gap-2 justify-center mt-3 pt-1">
+        {/* Bottom Back Button & Demo Triggers */}
+        <div className="flex items-center justify-center gap-3 mt-3 pt-1">
           <button
             type="button"
-            onClick={onTriggerFriendDemo}
-            className="px-2.5 py-1 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 text-[10px] font-bold tracking-tight transition-colors cursor-pointer border border-slate-300"
+            onClick={handleExitScanner}
+            className="w-13 h-13 rounded-full bg-[#ECE6DA] hover:bg-[#E2DBCF] text-[#1C1D21] flex items-center justify-center shadow-lg transition-transform active:scale-95 cursor-pointer shrink-0"
+            aria-label="Back to Badge"
           >
-            Demo Friend
+            <ArrowLeftIcon className="w-5 h-5 text-[#1C1D21]" />
           </button>
           {onTriggerBoothDemo && (
             <button
               type="button"
               onClick={onTriggerBoothDemo}
-              className="px-2.5 py-1 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 text-[10px] font-bold tracking-tight transition-colors cursor-pointer border border-slate-300"
+              className="px-2.5 py-1.5 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 text-[10px] font-bold tracking-tight transition-colors cursor-pointer border border-slate-300"
             >
               Demo Booth
             </button>

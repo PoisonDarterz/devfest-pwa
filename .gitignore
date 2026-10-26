@@ -29,3 +29,6 @@ coverage/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Local data storage
+server/data/

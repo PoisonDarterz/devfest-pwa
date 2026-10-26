@@ -5,13 +5,14 @@ import pinkFlower from '../../assets/pink-flower.svg';
 import bluePlus from '../../assets/blue-plus.svg';
 import redHeart from '../../assets/red-heart.svg';
 import GdgKlLogo from '../common/GdgKlLogo';
-import { QrScanIcon, DownloadIcon } from '../common/Icons';
+import { QrScanIcon, DownloadIcon, ArrowLeftIcon } from '../common/Icons';
 
 interface PassBadgeModuleProps {
   userName?: string;
   userRole?: string;
   qrPayload?: string;
   onOpenScanner: () => void;
+  onBackToHome: () => void;
 }
 
 export const PassBadgeModule: React.FC<PassBadgeModuleProps> = ({
@@ -19,6 +20,7 @@ export const PassBadgeModule: React.FC<PassBadgeModuleProps> = ({
   userRole = 'Software Engineer',
   qrPayload = 'DEVFEST-KL-2026-ZIXU-CHEAH-SW',
   onOpenScanner,
+  onBackToHome,
 }) => {
   return (
     <motion.div
@@ -73,16 +75,27 @@ export const PassBadgeModule: React.FC<PassBadgeModuleProps> = ({
       {/* Bottom Action Controls */}
       <div className="w-full flex items-center justify-center gap-3 pt-2 pb-2">
         <button
+          type="button"
+          onClick={onBackToHome}
+          className="w-13 h-13 rounded-full bg-[#ECE6DA] hover:bg-[#E2DBCF] text-[#1C1D21] flex items-center justify-center shadow-lg transition-transform active:scale-95 cursor-pointer shrink-0"
+          aria-label="Back to Home"
+        >
+          <ArrowLeftIcon className="w-5 h-5 text-[#1C1D21]" />
+        </button>
+
+        <button
+          type="button"
           onClick={onOpenScanner}
-          className="flex items-center gap-2.5 px-6 py-3 rounded-full bg-[#ECE6DA] hover:bg-[#E2DBCF] text-[#1C1D21] font-bold text-xs shadow-lg transition-transform active:scale-95 cursor-pointer"
+          className="h-13 flex items-center gap-2.5 px-6 rounded-full bg-[#ECE6DA] hover:bg-[#E2DBCF] text-[#1C1D21] font-bold text-xs shadow-lg transition-transform active:scale-95 cursor-pointer"
         >
           <QrScanIcon />
           <span>Scan QR</span>
         </button>
 
         <button
+          type="button"
           onClick={() => alert('Saved DevFest KL Pass to your photos/downloads!')}
-          className="w-12 h-12 rounded-full bg-[#ECE6DA] hover:bg-[#E2DBCF] text-[#1C1D21] flex items-center justify-center shadow-lg transition-transform active:scale-95 cursor-pointer shrink-0"
+          className="w-13 h-13 rounded-full bg-[#ECE6DA] hover:bg-[#E2DBCF] text-[#1C1D21] flex items-center justify-center shadow-lg transition-transform active:scale-95 cursor-pointer shrink-0"
           aria-label="Download Badge"
         >
           <DownloadIcon />

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeftIcon } from '../common/Icons';
 import pinkFlower from '../../assets/pink-flower.svg';
 import bluePlus from '../../assets/blue-plus.svg';
 import redHeart from '../../assets/red-heart.svg';
@@ -318,23 +319,8 @@ export const FriendsModule: React.FC<FriendsModuleProps> = ({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 15 }}
       transition={{ duration: 0.2 }}
-      className="flex flex-col h-full w-full relative text-slate-900 overflow-hidden"
+      className="flex flex-col h-full w-full relative text-slate-900 overflow-hidden pt-2"
     >
-      {/* Top Header Bar: Clean Close Control */}
-      <div className="flex items-center justify-end px-3 pt-1 pb-2 shrink-0">
-        <button
-          type="button"
-          onClick={onBackToHome}
-          className="p-1.5 rounded-full bg-slate-800/80 text-slate-300 hover:text-white transition-colors cursor-pointer"
-          title="Close Friends"
-          aria-label="Close"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-
       {/* Main Cream Rounded Card Container */}
       <div className="grow bg-[#ECE6DA] rounded-t-[32px] flex flex-col relative overflow-hidden shadow-xl border border-slate-300/40">
         {/* Scrollable Friends Content */}
@@ -410,12 +396,20 @@ export const FriendsModule: React.FC<FriendsModuleProps> = ({
           )}
         </div>
 
-        {/* Floating Gradient Bottom Overlay with Action Pill */}
-        <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[#ECE6DA] via-[#ECE6DA]/90 to-transparent pointer-events-none flex items-center justify-center pb-3">
+        {/* Floating Gradient Bottom Overlay with Action Buttons */}
+        <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[#ECE6DA] via-[#ECE6DA]/90 to-transparent pointer-events-none flex items-center justify-center gap-3 pb-3">
+          <button
+            type="button"
+            onClick={onBackToHome}
+            className="pointer-events-auto w-12 h-12 rounded-full bg-[#ECE6DA] hover:bg-[#F2ECE1] text-slate-900 border-2 border-slate-700/60 shadow-xl flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0"
+            aria-label="Back to Home"
+          >
+            <ArrowLeftIcon className="w-5 h-5 text-slate-900" />
+          </button>
           <button
             type="button"
             onClick={onOpenQrScanner}
-            className="pointer-events-auto bg-[#ECE6DA] hover:bg-[#F2ECE1] text-slate-900 border-2 border-slate-700/60 rounded-full px-6 py-2.5 shadow-xl flex items-center gap-2.5 font-bold text-xs tracking-tight transition-all active:scale-95 cursor-pointer"
+            className="pointer-events-auto h-12 bg-[#ECE6DA] hover:bg-[#F2ECE1] text-slate-900 border-2 border-slate-700/60 rounded-full px-6 shadow-xl flex items-center gap-2.5 font-bold text-xs tracking-tight transition-all active:scale-95 cursor-pointer"
           >
             <QrIcon />
             <span>Scan Friend Badge QR</span>

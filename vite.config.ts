@@ -5,6 +5,9 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
   server: {
+    watch: {
+      ignored: ['**/server/**', '**/dev-dist/**', '**/.git/**'],
+    },
     proxy: {
       '/api': {
         target: process.env.API_PROXY_TARGET || 'http://localhost:8787',

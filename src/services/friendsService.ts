@@ -155,6 +155,17 @@ export const friendsService = {
         { onConflict: 'user_id,friend_id' }
       );
 
+      // Reciprocal connection (Friend -> Active User) so both appear in each other's friends list
+      await supabase.from('connections').upsert(
+        {
+          user_id: friend.id,
+          friend_id: user.id,
+          method,
+          created_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,friend_id' }
+      );
+
       const nameParts = (friend.full_name || 'Attendee').trim().split(/\s+/);
       const displayName =
         nameParts.length === 1 ? nameParts[0] : `${nameParts[0]} ${nameParts[nameParts.length - 1][0]}.`;
@@ -180,7 +191,7 @@ export const friendsService = {
           method,
           connectedAt: new Date().toISOString(),
         },
-        isMutual: false,
+        isMutual: true,
         message: `Connected with ${friend.full_name}!`,
       };
     } catch (err: any) {

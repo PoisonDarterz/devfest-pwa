@@ -174,11 +174,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onOpenAdmin, i
     await handleConnectFriend(clean, 'QR Scan');
   };
 
-  const handleTriggerFriendDemo = async () => {
-    const demoPayload = 'https://luma.com/check-in/evt-Oe2V97Qj3BoILBV?pk=g-nIkeAve49hpxoQH';
-    await handleConnectFriend(demoPayload, 'QR Scan');
-  };
-
   const handleDragEnd = (_: unknown, info: { offset: { y: number }; velocity: { y: number } }) => {
     setIsTracklistExpanded(false);
     if (info.offset.y > 80 || info.velocity.y > 200) {
@@ -263,9 +258,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onOpenAdmin, i
                   setActiveModal('session');
                 }}
                 onOpenFriends={() => setSheetState('friends')}
-                onOpenRewards={() => setSheetState('rewards')}
-                onOpenFaq={() => setSheetState('faq')}
-                isWalkIn={isWalkIn}
               />
             )}
 
@@ -276,6 +268,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onOpenAdmin, i
                 userRole={userProfile.role}
                 qrPayload={userProfile.qrPayload}
                 onOpenScanner={() => setSheetState('scan_qr_2')}
+                onBackToHome={() => setSheetState('home')}
               />
             )}
 
@@ -300,7 +293,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onOpenAdmin, i
                   onScanResult={handleScanResult}
                   onClearScan={() => setScanResult(null)}
                   onBackToBadge={() => setSheetState('scan_qr_1')}
-                  onTriggerFriendDemo={handleTriggerFriendDemo}
                   userName={userProfile.name}
                   userRole={userProfile.role}
                   qrPayload={userProfile.qrPayload}
