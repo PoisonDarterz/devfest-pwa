@@ -57,7 +57,7 @@ export const AdminOperationsSection: React.FC = () => {
   const [faqs, setFaqs] = useState<FAQItem[]>([]);
   const [faqQuestion, setFaqQuestion] = useState('');
   const [faqAnswer, setFaqAnswer] = useState('');
-  const [faqCategory, setFaqCategory] = useState('Venue & Access');
+  const [faqCategory, setFaqCategory] = useState('Event Information');
   const [faqFeedback, setFaqFeedback] = useState<string | null>(null);
   const [editingFaqId, setEditingFaqId] = useState<string | null>(null);
   const [editQuestion, setEditQuestion] = useState('');
@@ -1191,10 +1191,13 @@ gst-EML4PlfvWqls3Qb,AnnexHub Test XS,,,nick+devfest-test-xs@annexcs.com,,2026-10
                   onChange={(e) => setFaqCategory(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-slate-950 text-xs text-white rounded-xl border border-slate-800 focus:outline-none focus:border-emerald-500"
                 >
+                  <option value="Event Information">Event Information</option>
+                  <option value="Tickets">Tickets</option>
+                  <option value="Event Day and Swag">Event Day and Swag</option>
+                  <option value="Booth Activities and Blind Box">Booth Activities and Blind Box</option>
+                  <option value="Nano Banana Game">Nano Banana Game</option>
+                  <option value="Vibe Lounge">Vibe Lounge</option>
                   <option value="Venue & Access">Venue & Access</option>
-                  <option value="Peatix & Tickets">Peatix & Tickets</option>
-                  <option value="WiFi & Apps">WiFi & Apps</option>
-                  <option value="Booths & Prizes">Booths & Prizes</option>
                   <option value="General">General</option>
                 </select>
               </div>

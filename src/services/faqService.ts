@@ -5,7 +5,7 @@ export const faqService = {
   // Fetch FAQs
   async getFAQs(): Promise<FAQItem[]> {
     try {
-      const { data, error } = await supabase.from('faqs').select('*');
+      const { data, error } = await supabase.from('faqs').select('*').order('created_at', { ascending: true });
       if (!error && data) return data as FAQItem[];
     } catch (err) {
       console.error('Database query failed for FAQs:', err);

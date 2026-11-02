@@ -425,3 +425,9 @@ CREATE POLICY "Allow public read access to sessions" ON public.sessions FOR SELE
 ALTER TABLE public.faqs ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public read access to faqs" ON public.faqs;
 CREATE POLICY "Allow public read access to faqs" ON public.faqs FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public insert to faqs" ON public.faqs;
+CREATE POLICY "Allow public insert to faqs" ON public.faqs FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow public update to faqs" ON public.faqs;
+CREATE POLICY "Allow public update to faqs" ON public.faqs FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow public delete to faqs" ON public.faqs;
+CREATE POLICY "Allow public delete to faqs" ON public.faqs FOR DELETE USING (true);

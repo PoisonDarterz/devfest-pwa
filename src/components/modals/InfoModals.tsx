@@ -199,8 +199,13 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
             <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">
               {faqs.map((f: FAQItem, i: number) => (
                 <div key={i} className="p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-1">
+                  {f.category && (
+                    <span className="inline-block text-[9px] font-mono uppercase tracking-wider text-amber-400/80 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/20">
+                      {f.category}
+                    </span>
+                  )}
                   <p className="font-bold text-white text-xs">{f.question}</p>
-                  <p className="text-slate-400 leading-relaxed text-[11px] font-sans">{f.answer}</p>
+                  <p className="text-slate-400 leading-relaxed text-[11px] font-sans whitespace-pre-line">{f.answer}</p>
                 </div>
               ))}
             </div>
