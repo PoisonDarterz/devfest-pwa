@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import type { Session } from '../lib/types';
 import { USE_NODE_BACKEND, NODE_API_BASE_URL } from './apiConfig';
+import { DEFAULT_SESSIONS } from '../lib/defaultSessions';
 
 export const sessionsService = {
   // Fetch Sessions Agenda
@@ -12,10 +13,12 @@ export const sessionsService = {
         const res = await fetch(`${NODE_API_BASE_URL}/sessions${trackParam}`);
         if (res.ok) {
           const sessions = await res.json();
-          return sessions.map((s: any) => ({
-            ...s,
-            rsvpCount: s.rsvpCount || 0,
-          }));
+          if (Array.isArray(sessions) && sessions.length > 0) {
+            return sessions.map((s: any) => ({
+              ...s,
+              rsvpCount: s.rsvpCount || 0,
+            }));
+          }
         }
       } catch (err) {
         console.error('Node backend fetch failed for sessions:', err);
@@ -28,7 +31,7 @@ export const sessionsService = {
         query = query.eq('track', track);
       }
       const { data, error } = await query;
-      if (!error && data) {
+      if (!error && data && data.length > 0) {
         return data.map((s) => ({
           id: s.id,
           title: s.title,
@@ -47,7 +50,12 @@ export const sessionsService = {
     } catch (err) {
       console.error('Database query failed for sessions:', err);
     }
-    return [];
+
+    // Default to latest 2026 conference agenda
+    if (track && track !== 'All') {
+      return DEFAULT_SESSIONS.filter((s) => s.track === track);
+    }
+    return DEFAULT_SESSIONS;
   },
 
   // Fetch Saved Session IDs for User

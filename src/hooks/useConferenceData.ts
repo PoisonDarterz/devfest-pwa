@@ -72,7 +72,7 @@ export const useConferenceData = ({
     }
   });
   const [stampFeedback, setStampFeedback] = useState<string | null>(null);
-  const [requiredStamps, setRequiredStamps] = useState<number>(3);
+  const [requiredStamps, setRequiredStamps] = useState<number>(5);
   const [isRallyComplete, setIsRallyComplete] = useState<boolean>(false);
 
   const [loginProvider, setLoginProvider] = useState<'google' | 'email'>(() => {

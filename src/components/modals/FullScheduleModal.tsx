@@ -11,7 +11,7 @@ interface FullScheduleModalProps {
   onSelectSessionDetail?: (session: Session) => void;
 }
 
-type TrackFilter = 'All' | 'AI / ML' | 'Cloud & DevOps' | 'Mobile & Web' | 'Saved';
+type TrackFilter = 'All' | 'Builder Track' | 'Developer Track' | 'Hands-On Track' | 'Saved';
 
 export const FullScheduleModal: React.FC<FullScheduleModalProps> = ({
   isOpen,
@@ -39,10 +39,10 @@ export const FullScheduleModal: React.FC<FullScheduleModalProps> = ({
   };
 
   const getTrackColorBadge = (track: string) => {
-    if (track === 'AI / ML' || track === 'Keynote') {
+    if (track === 'Builder Track' || track === 'AI / ML' || track === 'Keynote') {
       return 'bg-[#2B6396]/20 text-[#60A5FA] border-[#2B6396]/40';
     }
-    if (track === 'Cloud & DevOps') {
+    if (track === 'Developer Track' || track === 'Cloud & DevOps') {
       return 'bg-[#3B7A57]/20 text-[#4ADE80] border-[#3B7A57]/40';
     }
     return 'bg-[#8C4A36]/20 text-[#FB923C] border-[#8C4A36]/40';
@@ -54,12 +54,12 @@ export const FullScheduleModal: React.FC<FullScheduleModalProps> = ({
         // Track filter
         if (selectedTrack === 'Saved') {
           if (!savedSessionIds.includes(s.id)) return false;
-        } else if (selectedTrack === 'AI / ML') {
-          if (s.track !== 'AI / ML' && s.track !== 'Keynote') return false;
-        } else if (selectedTrack === 'Cloud & DevOps') {
-          if (s.track !== 'Cloud & DevOps') return false;
-        } else if (selectedTrack === 'Mobile & Web') {
-          if (s.track !== 'Mobile & Flutter' && s.track !== 'Web & Chrome') return false;
+        } else if (selectedTrack === 'Builder Track') {
+          if (s.track !== 'Builder Track' && s.track !== 'Keynote') return false;
+        } else if (selectedTrack === 'Developer Track') {
+          if (s.track !== 'Developer Track') return false;
+        } else if (selectedTrack === 'Hands-On Track') {
+          if (s.track !== 'Hands-On Track') return false;
         }
 
         // Search query filter
@@ -146,9 +146,9 @@ export const FullScheduleModal: React.FC<FullScheduleModalProps> = ({
             {(
               [
                 { id: 'All', label: 'All Tracks' },
-                { id: 'AI / ML', label: 'Track 1 (AI / ML)' },
-                { id: 'Cloud & DevOps', label: 'Track 2 (Cloud)' },
-                { id: 'Mobile & Web', label: 'Track 3 (Mobile & Web)' },
+                { id: 'Builder Track', label: 'Builder (JC1)' },
+                { id: 'Developer Track', label: 'Developer (JC2)' },
+                { id: 'Hands-On Track', label: 'Hands-On (JC3)' },
                 { id: 'Saved', label: `★ Saved (${savedSessionIds.length})` },
               ] as const
             ).map((filter) => {

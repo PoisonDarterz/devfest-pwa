@@ -1098,9 +1098,9 @@ gst-EML4PlfvWqls3Qb,AnnexHub Test XS,,,nick+devfest-test-xs@annexcs.com,,2026-10
                     className="w-full px-3 py-2 bg-slate-950 text-xs text-white rounded-xl border border-slate-800 focus:outline-none focus:border-emerald-500"
                   >
                     <option value="All">All Attendees</option>
-                    <option value="AI / ML">Track 1: AI / ML</option>
-                    <option value="Cloud & DevOps">Track 2: Cloud</option>
-                    <option value="Web & Mobile">Track 3: Web & Mobile</option>
+                    <option value="Builder Track">Builder Track @ JC1</option>
+                    <option value="Developer Track">Developer Track @ JC2</option>
+                    <option value="Hands-On Track">Hands-On Track @ JC3</option>
                   </select>
                 </div>
               </div>

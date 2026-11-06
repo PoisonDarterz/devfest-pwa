@@ -237,7 +237,7 @@ boothsRouter.get('/stamps', async (c) => {
               points: 15,
             }));
 
-            const requiredStamps = Number(annexData.stamps?.required) || 3;
+            const requiredStamps = Number(annexData.stamps?.required) || 5;
             const collectedStamps = Number(annexData.stamps?.collected) || stamps.length;
             const isComplete = Boolean(annexData.stamps?.complete || collectedStamps >= requiredStamps);
 

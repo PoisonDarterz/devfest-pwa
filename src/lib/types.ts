@@ -66,9 +66,11 @@ export interface Session {
     role: string;
     avatar: string;
   };
-  track: 'AI / ML' | 'Cloud & DevOps' | 'Mobile & Flutter' | 'Web & Chrome' | 'Keynote' | string;
+  track: 'Builder Track' | 'Developer Track' | 'Hands-On Track' | 'Keynote' | 'General' | string;
   room: string;
   time: string;
+  startTime?: string;
+  endTime?: string;
   description: string;
   rsvpCount?: number;
 }

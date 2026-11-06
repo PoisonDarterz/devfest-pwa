@@ -582,6 +582,19 @@ export const rewardsService = {
           };
         }
 
+        if (prof?.id) {
+          const { count } = await supabase
+            .from('user_stamps')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', prof.id);
+          if ((count || 0) < 5) {
+            return {
+              success: false,
+              message: `You have collected ${count || 0} of 5 required stamps. Collect at least 5 booth stamps to claim your blind box!`,
+            };
+          }
+        }
+
         if (prof?.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(prof.id)) {
           targetUserId = prof.id;
         }

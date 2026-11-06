@@ -30,7 +30,7 @@ interface RewardsModuleProps {
 
 export const RewardsModule: React.FC<RewardsModuleProps> = ({
   claimedStamps: initialClaimedStamps,
-  requiredStamps = 3,
+  requiredStamps = 5,
   isRallyComplete = false,
   userProfile,
   onBackToHome,

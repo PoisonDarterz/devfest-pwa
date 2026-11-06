@@ -20,10 +20,14 @@ export const OngoingSessionsRail: React.FC<OngoingSessionsRailProps> = ({
   onSelectSession,
   onOpenFullSchedule,
 }) => {
-  const track1Sessions = sessions.filter((s) => s.track === 'AI / ML' || s.track === 'Keynote');
-  const track2Sessions = sessions.filter((s) => s.track === 'Cloud & DevOps');
+  const track1Sessions = sessions.filter(
+    (s) => s.track === 'Builder Track' || s.track === 'Keynote'
+  );
+  const track2Sessions = sessions.filter(
+    (s) => s.track === 'Developer Track'
+  );
   const track3Sessions = sessions.filter(
-    (s) => s.track === 'Mobile & Flutter' || s.track === 'Web & Chrome'
+    (s) => s.track === 'Hands-On Track'
   );
 
   const renderSessionCard = (sess: Session, bgColor: string) => {
@@ -129,30 +133,30 @@ export const OngoingSessionsRail: React.FC<OngoingSessionsRailProps> = ({
       </div>
 
       <div className="space-y-3 pt-1">
-        {/* Row for Track 1 */}
+        {/* Row for Track 1: Builder Track @ JC1 */}
         <div className="flex gap-2.5 items-center">
-          <span className="text-[10px] font-extrabold text-slate-900/90 border-l-2 border-slate-900/80 pl-2 shrink-0 w-12 uppercase tracking-wider font-mono">
-            Track 1
+          <span className="text-[10px] font-extrabold text-slate-900/90 border-l-2 border-slate-900/80 pl-2 shrink-0 w-16 uppercase tracking-wider font-mono">
+            Builder
           </span>
           <div className="grow flex gap-2 overflow-x-auto scrollbar-none snap-x snap-mandatory pr-1 py-0.5">
             {track1Sessions.map((sess) => renderSessionCard(sess, 'bg-[#2B6396] hover:bg-[#255480]'))}
           </div>
         </div>
 
-        {/* Row for Track 2 */}
+        {/* Row for Track 2: Developer Track @ JC2 */}
         <div className="flex gap-2.5 items-center">
-          <span className="text-[10px] font-extrabold text-slate-900/90 border-l-2 border-slate-900/80 pl-2 shrink-0 w-12 uppercase tracking-wider font-mono">
-            Track 2
+          <span className="text-[10px] font-extrabold text-slate-900/90 border-l-2 border-slate-900/80 pl-2 shrink-0 w-16 uppercase tracking-wider font-mono">
+            Dev
           </span>
           <div className="grow flex gap-2 overflow-x-auto scrollbar-none snap-x snap-mandatory pr-1 py-0.5">
             {track2Sessions.map((sess) => renderSessionCard(sess, 'bg-[#3B7A57] hover:bg-[#326749]'))}
           </div>
         </div>
 
-        {/* Row for Track 3 */}
+        {/* Row for Track 3: Hands-On Track @ JC3 */}
         <div className="flex gap-2.5 items-center">
-          <span className="text-[10px] font-extrabold text-slate-900/90 border-l-2 border-slate-900/80 pl-2 shrink-0 w-12 uppercase tracking-wider font-mono">
-            Track 3
+          <span className="text-[10px] font-extrabold text-slate-900/90 border-l-2 border-slate-900/80 pl-2 shrink-0 w-16 uppercase tracking-wider font-mono">
+            Hands-On
           </span>
           <div className="grow flex gap-2 overflow-x-auto scrollbar-none snap-x snap-mandatory pr-1 py-0.5">
             {track3Sessions.map((sess) => renderSessionCard(sess, 'bg-[#8C4A36] hover:bg-[#773E2D]'))}

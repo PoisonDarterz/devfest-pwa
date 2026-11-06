@@ -323,6 +323,57 @@ gachaRouter.post('/unlock-box', async (c) => {
       );
     }
 
+    // Verify user has collected at least 5 stamps before issuing a blind box reward
+    let collectedStampsCount = 0;
+    const procEnv = typeof process !== 'undefined' && process.env ? process.env : ({} as Record<string, string | undefined>);
+    const annexApiKey = c.env?.ANNEXHUB_API_KEY || procEnv.ANNEXHUB_API_KEY;
+    const annexEventId = c.env?.ANNEXHUB_EVENT_ID || procEnv.ANNEXHUB_EVENT_ID;
+    const cleanEmail = email && typeof email === 'string' ? email.trim().toLowerCase() : null;
+
+    if (annexApiKey && annexEventId && cleanEmail) {
+      try {
+        const annexUrl = `https://api.annexhub.ai/api/v1/partner/events/${annexEventId}/progress`;
+        const annexRes = await fetch(annexUrl, {
+          method: 'POST',
+          headers: {
+            'X-Api-Key': annexApiKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email: cleanEmail }),
+        });
+        if (annexRes.ok) {
+          const annexData = (await annexRes.json()) as any;
+          if (annexData && Array.isArray(annexData.booths)) {
+            const visitedBooths = annexData.booths.filter((b: any) => Boolean(b.visited));
+            collectedStampsCount = visitedBooths.length;
+          } else if (annexData?.stamps?.collected) {
+            collectedStampsCount = Number(annexData.stamps.collected) || 0;
+          }
+        }
+      } catch (annexErr) {
+        console.warn('[Gacha] AnnexHub progress check failed, falling back to local stamps:', annexErr);
+      }
+    }
+
+    if (collectedStampsCount === 0 && targetUserId) {
+      const { count: localCount } = await supabaseAdmin
+        .from('user_stamps')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', targetUserId);
+      collectedStampsCount = localCount || 0;
+    }
+
+    const REQUIRED_STAMPS_FOR_REWARD = 5;
+    if (collectedStampsCount < REQUIRED_STAMPS_FOR_REWARD) {
+      return c.json(
+        {
+          success: false,
+          message: `You have collected ${collectedStampsCount} of ${REQUIRED_STAMPS_FOR_REWARD} required stamps. Collect at least ${REQUIRED_STAMPS_FOR_REWARD} booth stamps to claim your blind box!`,
+        },
+        400
+      );
+    }
+
     const { data: existing } = await supabaseAdmin
       .from('user_rewards')
       .select('*')
