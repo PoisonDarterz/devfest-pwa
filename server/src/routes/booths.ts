@@ -1,3 +1,11 @@
+export const isGameBooth = (b: { id?: string; name?: string; booth_code?: string; boothCode?: string } | null | undefined): boolean => {
+  if (!b) return false;
+  const name = (b.name || '').toLowerCase();
+  const code = (b.booth_code || b.boothCode || '').toUpperCase();
+  const id = b.id || '';
+  return id === '43af99eb-2163-428e-9558-3516e6210bc8' || code === 'BOOTH-NANOBANANA' || name.includes('nanobanana') || name.includes('game booth');
+};
+
 import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { supabaseAdmin } from '../db.js';
@@ -123,18 +131,144 @@ const resolveBooth = async (identifier: string) => {
   return null;
 };
 
+// AnnexHub 7 Exhibition Booths (Expected stamp booths)
+export const ANNEXHUB_BOOTHS_FALLBACK = [
+  {
+    id: '09fe544d-180d-4fe7-9bdc-f904f655f7b4',
+    name: 'Logitech Booth',
+    category: 'Silver Sponsor',
+    description: 'Next-gen developer peripherals and workspace productivity.',
+    boothCode: 'BOOTH-LOGITECH',
+    logoText: 'Logitech',
+    points: 15,
+    location: 'Hall A - #01',
+  },
+  {
+    id: '2ac6f20e-9a1f-482b-8d51-4b914ed67f6a',
+    name: 'Odra Venture Booth',
+    category: 'Gold Sponsor',
+    description: 'Venture investments, Web3 incubation, and tech acceleration.',
+    boothCode: 'BOOTH-ODRA',
+    logoText: 'Odra Venture',
+    points: 15,
+    location: 'Hall A - #02',
+  },
+  {
+    id: '43af99eb-2163-428e-9558-3516e6210bc8',
+    name: 'Nanobanana Game Booth',
+    category: 'Community & Game',
+    description: 'Interactive gaming showcase and community challenges.',
+    boothCode: 'BOOTH-NANOBANANA',
+    logoText: 'Nanobanana',
+    points: 15,
+    location: 'Hall B - #03',
+  },
+  {
+    id: 'e413229a-f543-4d0e-a04e-e70a123a8d07',
+    name: 'Jobstreet by SEEK Booth',
+    category: 'Gold Sponsor',
+    description: 'Career opportunities, talent insights, and dev recruitment.',
+    boothCode: 'BOOTH-JOBSTREET',
+    logoText: 'Jobstreet by SEEK',
+    points: 15,
+    location: 'Hall A - #04',
+  },
+  {
+    id: 'f1687fb9-9185-445a-8157-3d4ec6a2c8bf',
+    name: 'Deriv Booth',
+    category: 'Gold Sponsor',
+    description: 'Fintech engineering, trading APIs, and scalable infrastructure.',
+    boothCode: 'BOOTH-DERIV',
+    logoText: 'Deriv',
+    points: 15,
+    location: 'Hall A - #05',
+  },
+  {
+    id: 'bcc90427-15cb-4406-b08a-5d2f2e6ee6b4',
+    name: 'Cradle Fund Booth',
+    category: 'Ecosystem Partner',
+    description: 'Funding, grants, and support for Malaysian tech innovators.',
+    boothCode: 'BOOTH-CRADLE',
+    logoText: 'Cradle Fund',
+    points: 15,
+    location: 'Hall B - #06',
+  },
+  {
+    id: '15d863cb-db9d-4944-aaf4-d2f7631e9b24',
+    name: '42 Malaysia Booth',
+    category: 'Venue Sponsor',
+    description: 'Peer-to-peer coding education in Sunway Education Group.',
+    boothCode: 'BOOTH-42MY',
+    logoText: '42 Malaysia',
+    points: 15,
+    location: 'Hall A - #07',
+  },
+];
+
 // =============================================================================
-// 1. GET /api/booths - Fetch all partner and sponsor booths
+// 1. GET /api/booths - Fetch all partner and sponsor booths from AnnexHub (source of truth)
 // =============================================================================
 boothsRouter.get('/', async (_req: Request, res: Response): Promise<void> => {
+  const annexApiKey = process.env.ANNEXHUB_API_KEY;
+  const annexEventId = process.env.ANNEXHUB_EVENT_ID;
+
+  // 1. AnnexHub Source of Truth: Fetch live event booths from AnnexHub progress
+  if (annexApiKey && annexEventId) {
+    try {
+      const annexUrl = `https://api.annexhub.ai/api/v1/partner/events/${annexEventId}/progress`;
+      const annexRes = await fetch(annexUrl, {
+        method: 'POST',
+        headers: {
+          'X-Api-Key': annexApiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: 'partner-sync@devfest.kl' }),
+      });
+
+      if (annexRes.ok) {
+        const annexData = (await annexRes.json()) as any;
+        if (annexData && Array.isArray(annexData.booths)) {
+          // Filter out redemption counter so only the 7 expected exhibition booths are returned for stamps
+          const stampBooths = annexData.booths.filter(
+            (b: any) => !b.name.toLowerCase().includes('redemption')
+          );
+          res.json(
+            stampBooths.map((b: any, index: number) => {
+              const matchedFallback = ANNEXHUB_BOOTHS_FALLBACK.find(
+                (fb) => fb.id === b.id || fb.name.toLowerCase() === b.name.toLowerCase()
+              );
+              return {
+                id: b.id,
+                name: b.name,
+                category: matchedFallback?.category || 'Sponsor & Partner',
+                description: matchedFallback?.description || '',
+                boothCode: matchedFallback?.boothCode || `BOOTH-${b.name.replace(/\s+/g, '-').toUpperCase()}`,
+                logoText: matchedFallback?.logoText || b.name,
+                logoUrl: '',
+                points: 15,
+                location: matchedFallback?.location || `Hall A - #${String(index + 1).padStart(2, '0')}`,
+              };
+            })
+          );
+          return;
+        }
+      }
+    } catch (annexErr) {
+      console.warn('[Booths] AnnexHub booths fetch notice, querying Supabase:', annexErr);
+    }
+  }
+
+  // 2. Query Supabase (synced with AnnexHub)
   try {
     const { data, error } = await supabaseAdmin
       .from('booths')
       .select('*')
+      .neq('category', 'Organizer & Swag')
       .order('location', { ascending: true });
 
     if (!error && data && data.length > 0) {
-      const formatted = data.map((b) => ({
+      const filtered = data.filter((b) => !b.name.toLowerCase().includes('redemption'));
+      const formatted = filtered.map((b) => ({
         id: b.id,
         name: b.name,
         category: b.category,
@@ -152,49 +286,8 @@ boothsRouter.get('/', async (_req: Request, res: Response): Promise<void> => {
     console.warn('[Booths] Failed to fetch booths from DB:', err);
   }
 
-  // Fallback booths if database is unreachable
-  res.json([
-    {
-      id: '44fb4f52-7935-440d-9131-560cb488f344',
-      name: '42KL',
-      category: 'Community',
-      logoText: '42 KL | Sunway Education Group',
-      location: 'Hall A - #01',
-      description: 'Peer-to-peer coding school in Sunway Education Group.',
-      boothCode: 'BOOTH-42KL',
-      points: 15,
-    },
-    {
-      id: '902d52ff-b9b9-4e27-8ce8-403bcef6e001',
-      name: 'Google Cloud Malaysia',
-      category: 'Platinum Sponsor',
-      logoText: 'Google Cloud',
-      location: 'Hall A - #02',
-      description: 'Enterprise cloud infrastructure, Kubernetes & BigQuery solutions.',
-      boothCode: 'BOOTH-GCP',
-      points: 15,
-    },
-    {
-      id: '31eaffd9-e5f4-448c-9ecf-c42fe13e6f13',
-      name: 'Flutter Community',
-      category: 'Community',
-      logoText: 'Flutter',
-      location: 'Hall A - #04',
-      description: 'Cross-platform app development community in Malaysia.',
-      boothCode: 'BOOTH-FLUTTER',
-      points: 15,
-    },
-    {
-      id: '63844026-ba3f-4ea1-bbfd-af7b2058367a',
-      name: 'TensorFlow & Gemini AI',
-      category: 'Gold Sponsor',
-      logoText: 'Gemini',
-      location: 'Hall B - #10',
-      description: 'Generative AI and open-source machine learning ecosystem.',
-      boothCode: 'BOOTH-GEMINI',
-      points: 15,
-    },
-  ]);
+  // 3. Fallback to AnnexHub 7 exhibition booths
+  res.json(ANNEXHUB_BOOTHS_FALLBACK);
 });
 
 // =============================================================================
@@ -226,22 +319,35 @@ boothsRouter.get('/stamps', async (req: Request, res: Response): Promise<void> =
         if (annexRes.ok) {
           const annexData = (await annexRes.json()) as any;
           if (annexData && Array.isArray(annexData.booths)) {
-            const visitedBooths = annexData.booths.filter((b: any) => Boolean(b.visited));
+            // Filter out redemption counter so only the 7 expected exhibition booths are tracked for stamps
+            const stampBooths = annexData.booths.filter(
+              (b: any) => !b.name.toLowerCase().includes('redemption')
+            );
+            const visitedBooths = stampBooths.filter((b: any) => Boolean(b.visited));
             const stamps = visitedBooths.map((b: any) => b.id);
-            const stampDetails = visitedBooths.map((b: any) => ({
-              id: b.id,
-              boothId: b.id,
-              boothName: b.name,
-              boothCode: b.name,
-              category: 'Exhibition Booth',
-              location: '',
-              claimedAt: b.visitedAt || new Date().toISOString(),
-              points: 15,
-            }));
+            const stampDetails = visitedBooths.map((b: any) => {
+              const matchedFallback = ANNEXHUB_BOOTHS_FALLBACK.find(
+                (fb) => fb.id === b.id || fb.name.toLowerCase() === b.name.toLowerCase()
+              );
+              return {
+                id: b.id,
+                boothId: b.id,
+                boothName: b.name,
+                boothCode: matchedFallback?.boothCode || b.name,
+                category: matchedFallback?.category || 'Sponsor & Partner',
+                location: matchedFallback?.location || '',
+                claimedAt: b.visitedAt || new Date().toISOString(),
+                points: 15,
+              };
+            });
 
-            const requiredStamps = Number(annexData.stamps?.required) || 3;
-            const collectedStamps = Number(annexData.stamps?.collected) || stamps.length;
-            const isComplete = Boolean(annexData.stamps?.complete || collectedStamps >= requiredStamps);
+            const hasGameBooth = visitedBooths.some((b: any) => isGameBooth(b));
+            const regularVisitedBooths = visitedBooths.filter((b: any) => !isGameBooth(b));
+            const regularStampsCount = regularVisitedBooths.length;
+            const isGameBoothUnlocked = regularStampsCount >= 4;
+            const isComplete = regularStampsCount >= 4 && hasGameBooth;
+            const requiredStamps = 5; // 4 partner stamps + 1 game booth stamp
+            const collectedStamps = stamps.length;
 
             res.json({
               success: true,
@@ -249,16 +355,36 @@ boothsRouter.get('/stamps', async (req: Request, res: Response): Promise<void> =
               stampDetails,
               totalStamps: collectedStamps,
               requiredStamps,
+              requiredRegularStamps: 4,
+              regularStampsCount,
+              hasGameBooth,
+              isGameBoothUnlocked,
+              expectedBooths: stampBooths.length, // 7
               isComplete,
               totalPoints: collectedStamps * 15,
-              booths: annexData.booths,
+              booths: stampBooths.map((b: any, index: number) => {
+                const matched = ANNEXHUB_BOOTHS_FALLBACK.find(
+                  (fb) => fb.id === b.id || fb.name.toLowerCase() === b.name.toLowerCase()
+                );
+                return {
+                  id: b.id,
+                  name: b.name,
+                  category: matched?.category || 'Sponsor & Partner',
+                  description: matched?.description || '',
+                  boothCode: matched?.boothCode || `BOOTH-${b.name.replace(/\s+/g, '-').toUpperCase()}`,
+                  logoText: matched?.logoText || b.name,
+                  logoUrl: '',
+                  points: 15,
+                  location: matched?.location || `Hall A - #${String(index + 1).padStart(2, '0')}`,
+                };
+              }),
               source: 'annexhub',
             });
             return;
           }
         }
       } catch (annexErr) {
-        console.warn('[Booths] AnnexHub progress fetch failed, falling back to Supabase:', annexErr);
+        console.warn('[Booths] AnnexHub progress fetch notice:', annexErr);
       }
     }
 
@@ -311,11 +437,23 @@ boothsRouter.get('/stamps', async (req: Request, res: Response): Promise<void> =
     const stamps = stampDetails.map((s) => s.boothId);
     const totalPoints = stampDetails.reduce((sum, s) => sum + s.points, 0);
 
+    const hasGameBooth = (data || []).some((row: any) => isGameBooth(row.booth || { id: row.booth_id }));
+    const regularVisited = (data || []).filter((row: any) => !isGameBooth(row.booth || { id: row.booth_id }));
+    const regularStampsCount = regularVisited.length;
+    const isGameBoothUnlocked = regularStampsCount >= 4;
+    const isComplete = regularStampsCount >= 4 && hasGameBooth;
+
     res.json({
       success: true,
       stamps,
       stampDetails,
       totalStamps: stamps.length,
+      requiredStamps: 5,
+      requiredRegularStamps: 4,
+      regularStampsCount,
+      hasGameBooth,
+      isGameBoothUnlocked,
+      isComplete,
       totalPoints,
     });
   } catch (err: any) {
@@ -387,14 +525,29 @@ boothsRouter.post('/stamp', async (req: Request, res: Response): Promise<void> =
     // 4. Fetch all existing stamps for this user to check for duplicates
     const { data: existingStamps, error: checkErr } = await supabaseAdmin
       .from('user_stamps')
-      .select('booth_id')
+      .select('booth_id, booth:booths(id, name, booth_code)')
       .eq('user_id', userId);
 
     if (checkErr) {
       console.warn('[Booths] Error checking existing stamps:', checkErr);
     }
 
-    const currentStampsList = (existingStamps || []).map((s) => s.booth_id);
+    const currentStampsList = (existingStamps || []).map((s: any) => s.booth_id);
+
+    // Enforce 4-partner-stamp prerequisite before claiming Game Booth stamp
+    if (isGameBooth(booth)) {
+      const regularCount = (existingStamps || []).filter((s: any) => !isGameBooth(s.booth || { id: s.booth_id })).length;
+      if (regularCount < 4) {
+        res.status(400).json({
+          success: false,
+          isGameBoothLocked: true,
+          regularStampsCount: regularCount,
+          requiredRegularStamps: 4,
+          message: `The Nanobanana Game Booth is locked! You must collect at least 4 partner booth stamps before earning the Game Booth stamp (${regularCount}/4 collected).`,
+        });
+        return;
+      }
+    }
 
     // Edge Case: Check if user already claimed this booth stamp
     if (currentStampsList.includes(booth.id)) {

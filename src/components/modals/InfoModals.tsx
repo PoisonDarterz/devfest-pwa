@@ -3,6 +3,15 @@ import gdgklLogo from '../../assets/GDGKL-logo.png';
 import mapSvg from '../../assets/map.svg';
 import faqSvg from '../../assets/faq.svg';
 import gdgBwSvg from '../../assets/gdg-bw.svg';
+import odraVentureLogo from '../../assets/sponsors/odra-venture-logo.png';
+import jobstreetLogo from '../../assets/sponsors/JOBSTREET_small scale.png';
+import derivLogo from '../../assets/sponsors/DERIV_LOGO.png';
+import ellmLogo from '../../assets/sponsors/ellm-white.svg';
+import logitechLogo from '../../assets/sponsors/Logitech.png';
+import sunwayLogo from '../../assets/sponsors/sunway-education-logo-horizontal.png';
+import campusConscienceLogo from '../../assets/sponsors/campus-with-a-conscience.png';
+import malaysia42Logo from '../../assets/sponsors/42 MALAYSIA.png';
+import cradleLogo from '../../assets/sponsors/cradle.png';
 import { CloseIcon } from '../common/Icons';
 import { getAvatarUrl } from '../../lib/avatar';
 import GdgKlLogo from '../common/GdgKlLogo';
@@ -124,13 +133,13 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="glass-card rounded-3xl p-6 border border-slate-800 max-w-sm w-full space-y-4 max-h-[85vh] overflow-y-auto relative animate-in fade-in zoom-in-95 duration-200">
+      <div className={`glass-card rounded-3xl p-6 border border-slate-800 w-full space-y-4 max-h-[85vh] overflow-y-auto relative animate-in fade-in zoom-in-95 duration-200 ${activeModal === 'about_gdg' ? 'max-w-md' : 'max-w-sm'}`}>
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <h3 className="font-heading font-bold text-base text-white capitalize">
             {activeModal === 'rewards' && 'DevFest Reward Stamps'}
             {activeModal === 'venue_map' && 'Venue Map & Directions'}
             {activeModal === 'faq' && 'Frequently Asked Questions'}
-            {activeModal === 'about_gdg' && 'About DevFest & GDG'}
+            {activeModal === 'about_gdg' && 'DevFest Sponsors & Partners'}
             {activeModal === 'friends' && 'Networking & Friends'}
             {activeModal === 'session' && 'Session Details'}
             {activeModal === 'profile' && 'Attendee Profile'}
@@ -216,21 +225,86 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
           </div>
         )}
 
-        {/* ABOUT DEVFEST & GDG DIALOG */}
+        {/* ABOUT DEVFEST & SPONSORS DIALOG */}
         {activeModal === 'about_gdg' && (
-          <div className="space-y-4 text-xs text-center">
-            <div className="p-4 bg-slate-900 rounded-2xl border border-slate-800 space-y-3">
-              <div className="w-16 h-12 rounded-2xl bg-[#ADC8FF] mx-auto flex items-center justify-center shadow-md">
-                <img src={gdgBwSvg} alt="GDG" className="w-12 h-8 object-contain" />
+          <div className="space-y-5 text-xs">
+            <div className="p-4 bg-slate-900 rounded-2xl border border-slate-800 space-y-2 text-center">
+              <div className="w-14 h-10 rounded-xl bg-[#ADC8FF] mx-auto flex items-center justify-center shadow-md">
+                <img src={gdgBwSvg} alt="GDG" className="w-10 h-7 object-contain" />
               </div>
               <div>
                 <h4 className="font-extrabold text-white text-base">Google DevFest KL 2026</h4>
                 <p className="text-slate-400 text-[11px] italic font-serif">By Google Developer Group Kuala Lumpur</p>
               </div>
-              <p className="text-slate-300 text-[11px] leading-relaxed text-left font-sans">
-                <strong>DevFest</strong> is an annual decentralized tech conference hosted by Google Developer Groups (GDG) around the globe. Join developers, designers, and tech leaders in Kuala Lumpur for technical sessions, keynotes, and networking!
+              <p className="text-slate-300 text-[11px] leading-relaxed text-center font-sans">
+                DevFest is an annual decentralized tech conference hosted by Google Developer Groups (GDG). A massive thank you to our esteemed sponsors and partners for making DevFest Kuala Lumpur 2026 possible!
               </p>
             </div>
+
+            {/* UNIFORM EQUAL-SIZED SPONSOR TIERS */}
+            {[
+              {
+                title: 'Gold Sponsors',
+                dotClass: 'bg-amber-400 shadow-amber-400/50',
+                titleClass: 'text-amber-300',
+                items: [
+                  { name: 'Odra Venture', logo: odraVentureLogo },
+                  { name: 'Jobstreet by SEEK', logo: jobstreetLogo },
+                  { name: 'deriv', logo: derivLogo },
+                ],
+              },
+              {
+                title: 'Silver Sponsors',
+                dotClass: 'bg-slate-300 shadow-slate-300/50',
+                titleClass: 'text-slate-300',
+                items: [
+                  { name: 'Embedded LLM', logo: ellmLogo },
+                  { name: 'Logitech', logo: logitechLogo },
+                ],
+              },
+              {
+                title: 'Venue Sponsors',
+                dotClass: 'bg-emerald-400 shadow-emerald-400/50',
+                titleClass: 'text-emerald-300',
+                items: [
+                  { name: 'Sunway Education', logo: sunwayLogo },
+                  { name: 'Campus with a Conscience', logo: campusConscienceLogo },
+                  { name: '42 Malaysia', logo: malaysia42Logo },
+                ],
+              },
+              {
+                title: 'Ecosystem Partner',
+                dotClass: 'bg-sky-400 shadow-sky-400/50',
+                titleClass: 'text-sky-300',
+                items: [
+                  { name: 'Cradle', logo: cradleLogo },
+                ],
+              },
+            ].map((tier) => (
+              <div key={tier.title} className="space-y-2">
+                <div className="flex items-center gap-2 px-1">
+                  <span className={`w-2.5 h-2.5 rounded-full shadow-sm ${tier.dotClass}`} />
+                  <h5 className={`font-heading font-extrabold text-[11px] uppercase tracking-wider ${tier.titleClass}`}>
+                    {tier.title}
+                  </h5>
+                </div>
+                <div className="grid grid-cols-1 gap-2.5">
+                  {tier.items.map((sponsor) => (
+                    <div
+                      key={sponsor.name}
+                      className="bg-white rounded-2xl p-3 flex items-center justify-center h-16 shadow-md border border-slate-200/20 hover:scale-[1.01] transition-transform"
+                    >
+                      <img
+                        src={sponsor.logo}
+                        alt={sponsor.name}
+                        title={sponsor.name}
+                        className="max-h-9 w-auto max-w-[70%] object-contain"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
 
             <div className="pt-2 text-center border-t border-slate-800">
               <GdgKlLogo inverted />
@@ -308,7 +382,7 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
         {activeModal === 'session' && (
           <div className="space-y-4 text-xs">
             <div className="flex items-center gap-3">
-              <img src={activeSession.speaker.avatar} className="w-10 h-10 rounded-xl object-cover" alt="" />
+              <img src={activeSession.speaker.avatar || getAvatarUrl(activeSession.speaker.name)} className="w-10 h-10 rounded-xl object-cover" alt="" onError={(e) => { (e.target as HTMLImageElement).src = getAvatarUrl(activeSession.speaker.name); }} />
               <div>
                 <p className="font-bold text-white text-sm">{activeSession.speaker.name}</p>
                 <p className="text-slate-400 text-[11px]">{activeSession.speaker.role}</p>

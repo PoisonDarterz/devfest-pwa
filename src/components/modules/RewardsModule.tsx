@@ -51,6 +51,7 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
   const [userRewards, setUserRewards] = useState<UserRewardItem[]>([]);
   const [isLoadingRewards, setIsLoadingRewards] = useState(false);
   const [activeVoucherReward, setActiveVoucherReward] = useState<UserRewardItem | null>(null);
+  const [showInfoTooltip, setShowInfoTooltip] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     rewardTitle: string;
@@ -83,22 +84,45 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
     fetchUserRewards();
   }, [userProfile?.email, userProfile?.id]);
 
-  const stampsCount = localStamps.length;
-  const isUnlocked = isRallyComplete || stampsCount >= requiredStamps;
-  const remainingStamps = Math.max(0, requiredStamps - stampsCount);
+  const isGameBoothStamp = (idOrCode: string) =>
+    idOrCode === '43af99eb-2163-428e-9558-3516e6210bc8' ||
+    idOrCode === 'BOOTH-NANOBANANA' ||
+    idOrCode.toLowerCase().includes('nanobanana') ||
+    idOrCode === 'demo-game-booth';
+
+  const hasGameBooth = localStamps.some(isGameBoothStamp);
+  const regularStamps = localStamps.filter((s) => !isGameBoothStamp(s));
+  const regularCount = regularStamps.length;
+  const isGameBoothUnlocked = regularCount >= 4;
+  const isUnlocked = isRallyComplete || (regularCount >= 4 && hasGameBooth);
   const unclaimedCount = userRewards.filter((r) => r.status !== 'claimed').length;
 
   // Demo helpers to quickly test stamps
-  const handleAddDemoStamp = () => {
-    if (localStamps.length < requiredStamps) {
-      setLocalStamps((prev) => [...prev, `demo-stamp-${prev.length + 1}`]);
+  const handleAddDemoPartnerStamp = () => {
+    if (regularCount < 4) {
+      setLocalStamps((prev) => [...prev, `demo-partner-${regularCount + 1}`]);
+    }
+  };
+
+  const handleAddDemoGameStamp = () => {
+    if (!hasGameBooth) {
+      if (regularCount < 4) {
+        alert('You need 4 partner booth stamps before unlocking the Game Booth stamp!');
+        return;
+      }
+      setLocalStamps((prev) => [...prev, 'demo-game-booth']);
     }
   };
 
   const handleFillAllStamps = () => {
-    setLocalStamps(Array.from({ length: requiredStamps }, (_, i) => `demo-stamp-${i + 1}`));
+    setLocalStamps([
+      'demo-partner-1',
+      'demo-partner-2',
+      'demo-partner-3',
+      'demo-partner-4',
+      'demo-game-booth',
+    ]);
   };
-
   // Staff claim for participant's swag item with accidental contact confirmation
   const handlePromptStaffClaim = (reward: UserRewardItem) => {
     setConfirmModal({
@@ -311,32 +335,159 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
               {/* Main Stamp Card (Cream Background with Generous Spacing) */}
               <div className="bg-[#ECE6DA] text-slate-900 rounded-[36px] p-6 pt-9 shadow-2xl border-4 border-[#DED7C9] space-y-5 text-center">
                 
-                {/* Header Instruction */}
-                <p className="font-serif italic font-medium text-sm text-slate-800 tracking-tight">
-                  Reach {requiredStamps} stamps to claim a blind box.
-                </p>
+                {/* Header Instruction with (i) Tooltip Button */}
+                <div className="flex items-center justify-center gap-1.5 relative">
+                  <p className="font-serif italic font-medium text-xs sm:text-sm text-slate-800 tracking-tight">
+                    Collect 4 partner stamps + 1 Game Booth stamp
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowInfoTooltip((prev) => !prev)}
+                    aria-label="Stamp Rally Rules Info"
+                    className="w-5 h-5 rounded-full bg-slate-300 hover:bg-slate-400 active:scale-95 text-slate-800 flex items-center justify-center text-[11px] font-serif font-black transition-transform cursor-pointer shrink-0 shadow-2xs"
+                  >
+                    i
+                  </button>
+                </div>
 
-                {/* Stamp Boxes Grid */}
-                <div className={`grid ${requiredStamps <= 5 ? 'grid-cols-3 sm:grid-cols-5' : 'grid-cols-5'} gap-2.5 pt-2 pb-2`}>
-                  {[...Array(requiredStamps)].map((_, idx) => {
-                    const isClaimed = idx < stampsCount;
-                    return (
+                {/* Animated Tooltip Guidance Card */}
+                <AnimatePresence>
+                  {showInfoTooltip && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0, scale: 0.96 }}
+                      animate={{ opacity: 1, height: 'auto', scale: 1 }}
+                      exit={{ opacity: 0, height: 0, scale: 0.96 }}
+                      transition={{ duration: 0.18 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="bg-[#2D2E32] text-white rounded-2xl p-4 shadow-xl border border-slate-700/80 text-left space-y-2.5 my-1">
+                        <div className="flex items-center justify-between pb-1 border-b border-slate-700">
+                          <span className="font-heading font-extrabold text-xs text-amber-300 flex items-center gap-1.5">
+                            <span>🎮</span> Stamp Rally Guidelines
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setShowInfoTooltip(false)}
+                            className="text-slate-400 hover:text-white text-xs px-1.5 py-0.5 rounded cursor-pointer"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        <div className="text-[11px] space-y-2 text-slate-200">
+                          <div className="flex items-start gap-2">
+                            <span className="w-4 h-4 rounded-full bg-blue-500/30 text-blue-300 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">1</span>
+                            <span>Visit any <strong>4 partner booths</strong> to collect stamps ({Math.min(regularCount, 4)}/4 collected).</span>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <span className="w-4 h-4 rounded-full bg-amber-500/30 text-amber-300 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">2</span>
+                            <span>The <strong>Nanobanana Game Booth</strong> unlocks only after 4 partner stamps are filled!</span>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <span className="w-4 h-4 rounded-full bg-emerald-500/30 text-emerald-300 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">3</span>
+                            <span>Visit Hall B - #03 to play and claim your final stamp for the <strong>Blind Box</strong>!</span>
+                          </div>
+                        </div>
+                        <div className="pt-1.5 text-[10px] font-mono border-t border-slate-700/60 text-center text-amber-400">
+                          {regularCount < 4 
+                            ? `🔒 Game Booth Locked (${4 - regularCount} more partner stamp${4 - regularCount > 1 ? 's' : ''} needed)` 
+                            : !hasGameBooth 
+                            ? '🎉 Game Booth Unlocked! Head to Hall B - #03' 
+                            : '✅ All Stamps Collected! Blind Box Ready 🎁'}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* 4 Partner Stamps Grid */}
+                <div className="space-y-1.5 text-left pt-1">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-600">
+                      Partner Booth Stamps
+                    </span>
+                    <span className="text-[11px] font-extrabold text-blue-900">
+                      {Math.min(regularCount, 4)} / 4
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[0, 1, 2, 3].map((idx) => {
+                      const isClaimed = idx < regularCount;
+                      return (
+                        <div
+                          key={idx}
+                          className={`h-15 rounded-2xl flex flex-col items-center justify-center p-1 transition-all ${
+                            isClaimed
+                              ? 'bg-[#D8E5FD] border-2 border-[#91B9FF] shadow-xs'
+                              : 'bg-[#E2DBCF]/90 border border-black/10'
+                          }`}
+                        >
+                          <img
+                            src={isClaimed ? blueGift : greyGift}
+                            alt={isClaimed ? 'Blue Gift' : 'Grey Gift'}
+                            className="w-6 h-6 object-contain"
+                          />
+                          <span className={`text-[9px] font-bold mt-1 ${isClaimed ? 'text-blue-900' : 'text-slate-500'}`}>
+                            #{idx + 1}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 1 Special Game Booth Stamp Slot */}
+                <div className="pt-1 text-left space-y-1">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-600">
+                      Milestone Game Booth
+                    </span>
+                    <span className={`text-[10px] font-mono font-black uppercase px-2 py-0.5 rounded-full ${
+                      hasGameBooth
+                        ? 'bg-emerald-200 text-emerald-900 border border-emerald-300'
+                        : isGameBoothUnlocked
+                        ? 'bg-amber-200 text-amber-900 border border-amber-300 animate-pulse'
+                        : 'bg-slate-300 text-slate-700'
+                    }`}>
+                      {hasGameBooth ? 'Completed ✓' : isGameBoothUnlocked ? 'Unlocked!' : 'Locked 🔒'}
+                    </span>
+                  </div>
+
+                  <div
+                    className={`rounded-2xl p-3 border-2 transition-all flex items-center justify-between gap-3 ${
+                      hasGameBooth
+                        ? 'bg-[#E8F0FE] border-blue-400 shadow-sm'
+                        : isGameBoothUnlocked
+                        ? 'bg-amber-50/90 border-amber-400 ring-2 ring-amber-300/40 shadow-sm'
+                        : 'bg-[#E0D9CD]/80 border-slate-300/80 opacity-75'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
                       <div
-                        key={idx}
-                        className={`h-14 sm:h-16 rounded-2xl flex items-center justify-center transition-all ${
-                          isClaimed
-                            ? 'bg-[#D8E5FD] border-2 border-[#91B9FF] shadow-xs'
-                            : 'bg-[#E2DBCF]/90 border border-black/5'
+                        className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 text-xl border ${
+                          hasGameBooth
+                            ? 'bg-blue-100 border-blue-300 text-blue-900'
+                            : isGameBoothUnlocked
+                            ? 'bg-amber-100 border-amber-300 text-amber-800'
+                            : 'bg-slate-200 border-slate-300 text-slate-400'
                         }`}
                       >
-                        <img
-                          src={isClaimed ? blueGift : greyGift}
-                          alt={isClaimed ? 'Blue Gift' : 'Grey Gift'}
-                          className="w-7 h-7 object-contain"
-                        />
+                        {hasGameBooth ? '🎮' : isGameBoothUnlocked ? '🎮' : '🔒'}
                       </div>
-                    );
-                  })}
+                      <div className="min-w-0">
+                        <h4 className="font-heading font-black text-xs text-slate-950 flex items-center gap-1.5">
+                          <span>Nanobanana Game Booth</span>
+                          {hasGameBooth && <span className="text-emerald-600 text-xs font-bold">✓</span>}
+                        </h4>
+                        <p className="text-[10px] text-slate-600">
+                          {hasGameBooth
+                            ? 'Stamp verified at Hall B - #03!'
+                            : isGameBoothUnlocked
+                            ? 'Unlocked! Visit Hall B - #03 to play and collect your stamp.'
+                            : `Collect ${4 - regularCount} more partner stamp${4 - regularCount > 1 ? 's' : ''} to unlock.`}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Action / Progress Button */}
@@ -350,20 +501,26 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
                       <img src={blueGift} alt="Gift" className="w-6 h-6 object-contain brightness-200" />
                       <span>Pick Your Blind Box!</span>
                     </button>
+                  ) : regularCount < 4 ? (
+                    <button
+                      disabled
+                      className="w-full h-14 bg-[#DED8CC] text-slate-500 font-heading font-bold text-xs sm:text-sm rounded-2xl flex items-center justify-center gap-2 cursor-not-allowed shadow-inner px-2"
+                    >
+                      <img src={greyGift} alt="Gift" className="w-5 h-5 object-contain opacity-70" />
+                      <span>{4 - regularCount} more partner stamp{4 - regularCount > 1 ? 's' : ''} to unlock Game Booth</span>
+                    </button>
                   ) : (
                     <button
                       disabled
-                      className="w-full h-14 bg-[#DED8CC] text-slate-500 font-heading font-bold text-sm rounded-2xl flex items-center justify-center gap-2.5 cursor-not-allowed shadow-inner"
+                      className="w-full h-14 bg-amber-100 text-amber-900 border border-amber-300 font-heading font-bold text-xs sm:text-sm rounded-2xl flex items-center justify-center gap-2 cursor-not-allowed shadow-sm px-2"
                     >
-                      <img src={greyGift} alt="Gift" className="w-5 h-5 object-contain opacity-70" />
-                      <span>{remainingStamps} more to go!</span>
+                      <span>🎮 Visit Nanobanana Game Booth for final stamp!</span>
                     </button>
                   )}
                 </div>
 
               </div>
             </div>
-
             {/* ============================================================= */}
             {/* PARTICIPANT'S REWARDS: CLAIMED & UNCLAIMED TRACKER            */}
             {/* ============================================================= */}
@@ -472,23 +629,34 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
             </div>
 
             {/* DEMO TOOLBAR: Quick test buttons */}
-            <div className="flex items-center gap-2 pt-2 text-xs">
+            <div className="flex flex-wrap items-center justify-center gap-2 pt-2 text-xs">
               <button
                 type="button"
-                onClick={handleAddDemoStamp}
-                className="px-3.5 py-1.5 rounded-full bg-slate-800/90 hover:bg-slate-700 text-slate-300 font-medium border border-slate-700 transition-colors cursor-pointer"
+                onClick={handleAddDemoPartnerStamp}
+                className="px-3 py-1.5 rounded-full bg-slate-800/90 hover:bg-slate-700 text-slate-300 font-medium border border-slate-700 transition-colors cursor-pointer"
               >
-                +1 Stamp ({stampsCount}/{requiredStamps})
+                +1 Partner ({Math.min(regularCount, 4)}/4)
+              </button>
+              <button
+                type="button"
+                onClick={handleAddDemoGameStamp}
+                disabled={regularCount < 4}
+                className={`px-3 py-1.5 rounded-full font-medium transition-colors cursor-pointer ${
+                  regularCount < 4
+                    ? 'bg-slate-800/40 text-slate-500 border border-slate-700/50 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-500 text-white shadow-xs'
+                }`}
+              >
+                + Game Stamp {hasGameBooth ? '✓' : ''}
               </button>
               <button
                 type="button"
                 onClick={handleFillAllStamps}
-                className="px-3.5 py-1.5 rounded-full bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold border border-amber-500/30 transition-colors cursor-pointer"
+                className="px-3 py-1.5 rounded-full bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold border border-amber-500/30 transition-colors cursor-pointer"
               >
-                ⚡ Unlock {requiredStamps} Stamps
+                ⚡ Fill 4 + Game
               </button>
             </div>
-
             {/* CIRCULAR BACK BUTTON */}
             <div className="pt-4 pb-2">
               <button

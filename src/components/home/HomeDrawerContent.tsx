@@ -4,6 +4,7 @@ import pinkFlower from '../../assets/pink-flower.svg';
 import yellowArrow from '../../assets/yellow-arrow.svg';
 import greenHashtag from '../../assets/green-hashtag.svg';
 import type { Session } from '../../lib/types';
+import { getAvatarUrl } from '../../lib/avatar';
 
 interface HomeDrawerContentProps {
   activeUpcomingSession: Session | null;
@@ -51,7 +52,7 @@ export const HomeDrawerContent: React.FC<HomeDrawerContentProps> = ({
             >
               <div className="flex items-start gap-3">
                 <img
-                  src={activeUpcomingSession.speaker.avatar}
+                  src={activeUpcomingSession.speaker.avatar || getAvatarUrl(activeUpcomingSession.speaker.name)} onError={(e) => { (e.target as HTMLImageElement).src = getAvatarUrl(activeUpcomingSession.speaker.name); }}
                   alt=""
                   className="w-12 h-12 rounded-2xl object-cover shrink-0 border border-white/20 shadow-md"
                 />

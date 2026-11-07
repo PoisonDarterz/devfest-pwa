@@ -307,6 +307,118 @@ gachaRouter.post('/unlock-box', async (req: Request, res: Response): Promise<voi
       return;
     }
 
+    // Verify user has collected at least 5 stamps before issuing a blind box reward
+    let collectedStampsCount = 0;
+    const annexApiKey = process.env.ANNEXHUB_API_KEY;
+    const annexEventId = process.env.ANNEXHUB_EVENT_ID;
+    const cleanEmail = email && typeof email === 'string' ? email.trim().toLowerCase() : null;
+
+    if (annexApiKey && annexEventId && cleanEmail) {
+      try {
+        const annexUrl = `https://api.annexhub.ai/api/v1/partner/events/${annexEventId}/progress`;
+        const annexRes = await fetch(annexUrl, {
+          method: 'POST',
+          headers: {
+            'X-Api-Key': annexApiKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email: cleanEmail }),
+        });
+        if (annexRes.ok) {
+          const annexData = (await annexRes.json()) as any;
+          if (annexData && Array.isArray(annexData.booths)) {
+            const visitedBooths = annexData.booths
+              .filter((b: any) => !b.name?.toLowerCase().includes('redemption'))
+              .filter((b: any) => Boolean(b.visited));
+            collectedStampsCount = visitedBooths.length;
+          } else if (annexData?.stamps?.collected) {
+            collectedStampsCount = Number(annexData.stamps.collected) || 0;
+          }
+        }
+      } catch (annexErr) {
+        console.warn('[Gacha] AnnexHub progress check failed, falling back to local stamps:', annexErr);
+      }
+    }
+
+    if (collectedStampsCount === 0 && targetUserId) {
+      const { count: localCount } = await supabaseAdmin
+        .from('user_stamps')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', targetUserId);
+      collectedStampsCount = localCount || 0;
+    }
+
+    // Enforce 4 partner stamps + 1 Game Booth stamp
+    let regularStampsCount = 0;
+    let hasGameBooth = false;
+
+    const isGameBooth = (b: any) =>
+      b.id === '43af99eb-2163-428e-9558-3516e6210bc8' ||
+      b.name?.toLowerCase().includes('nanobanana') ||
+      b.name?.toLowerCase().includes('game booth') ||
+      b.booth_code?.toUpperCase().includes('NANOBANANA');
+
+    if (annexApiKey && annexEventId && cleanEmail) {
+      try {
+        const annexUrl = `https://api.annexhub.ai/api/v1/partner/events/${annexEventId}/progress`;
+        const annexRes = await fetch(annexUrl, {
+          method: 'POST',
+          headers: {
+            'X-Api-Key': annexApiKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email: cleanEmail }),
+        });
+        if (annexRes.ok) {
+          const annexData = (await annexRes.json()) as any;
+          if (annexData && Array.isArray(annexData.booths)) {
+            const visitedBooths = annexData.booths
+              .filter((b: any) => !b.name?.toLowerCase().includes('redemption'))
+              .filter((b: any) => Boolean(b.visited));
+            hasGameBooth = visitedBooths.some(isGameBooth);
+            regularStampsCount = visitedBooths.filter((b: any) => !isGameBooth(b)).length;
+          }
+        }
+      } catch (err) {
+        console.warn('[Gacha] AnnexHub validation notice:', err);
+      }
+    }
+
+    if (regularStampsCount === 0 && !hasGameBooth && targetUserId) {
+      const { data: dbStamps } = await supabaseAdmin
+        .from('user_stamps')
+        .select('booth_id, booth:booths(id, name, booth_code)')
+        .eq('user_id', targetUserId);
+      if (dbStamps && dbStamps.length > 0) {
+        hasGameBooth = dbStamps.some((row: any) => isGameBooth(row.booth || { id: row.booth_id }));
+        regularStampsCount = dbStamps.filter((row: any) => !isGameBooth(row.booth || { id: row.booth_id })).length;
+      }
+    }
+
+    if (regularStampsCount < 4 || !hasGameBooth) {
+      if (regularStampsCount < 4 && !hasGameBooth) {
+        res.status(400).json({
+          success: false,
+          message: `You need 4 partner booth stamps (${regularStampsCount}/4 collected) and the Nanobanana Game Booth stamp to claim your reward.`,
+        });
+        return;
+      }
+      if (regularStampsCount < 4) {
+        res.status(400).json({
+          success: false,
+          message: `You need at least 4 partner booth stamps (${regularStampsCount}/4 collected) to claim your reward.`,
+        });
+        return;
+      }
+      if (!hasGameBooth) {
+        res.status(400).json({
+          success: false,
+          message: `You've collected 4 partner stamps! Visit the Nanobanana Game Booth in Hall B - #03 to get your final stamp and claim your blind box!`,
+        });
+        return;
+      }
+    }
+
     // 1. Check if user already has an unlocked blind box
     const { data: existing } = await supabaseAdmin
       .from('user_rewards')

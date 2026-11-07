@@ -344,7 +344,7 @@ gachaRouter.post('/unlock-box', async (c) => {
         if (annexRes.ok) {
           const annexData = (await annexRes.json()) as any;
           if (annexData && Array.isArray(annexData.booths)) {
-            const visitedBooths = annexData.booths.filter((b: any) => Boolean(b.visited));
+            const visitedBooths = annexData.booths.filter((b: any) => !b.name?.toLowerCase().includes('redemption')).filter((b: any) => Boolean(b.visited));
             collectedStampsCount = visitedBooths.length;
           } else if (annexData?.stamps?.collected) {
             collectedStampsCount = Number(annexData.stamps.collected) || 0;

@@ -18,14 +18,14 @@
   },
   "vars": {
     "SUPABASE_URL": "https://vjbdlxybbcoaahfgxlbo.supabase.co",
-    "ANNEXHUB_EVENT_ID": "fd24cc93-87f5-4d76-b4b9-c94bac6390b6",
+    "ANNEXHUB_EVENT_ID": "82c84c49-9d0f-4c2f-b247-c5dd58cda773",
     "VAPID_PUBLIC_KEY": "BGlGZhNt2_kafTHuVXzGfz7OqZBaLCHJK3bsRuIKlqwWb5K7AePOC5MvOqdznc_7uTcEk7mZofGaAwIf6AUvjls",
     "VAPID_SUBJECT": "mailto:organizers@gmail.com"
   },
   "previews": {
     "vars": {
       "SUPABASE_URL": "https://vjbdlxybbcoaahfgxlbo.supabase.co",
-      "ANNEXHUB_EVENT_ID": "fd24cc93-87f5-4d76-b4b9-c94bac6390b6",
+      "ANNEXHUB_EVENT_ID": "82c84c49-9d0f-4c2f-b247-c5dd58cda773",
       "VAPID_PUBLIC_KEY": "BGlGZhNt2_kafTHuVXzGfz7OqZBaLCHJK3bsRuIKlqwWb5K7AePOC5MvOqdznc_7uTcEk7mZofGaAwIf6AUvjls",
       "VAPID_SUBJECT": "mailto:organizers@gmail.com"
     }

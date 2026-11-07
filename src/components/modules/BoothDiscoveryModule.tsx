@@ -69,15 +69,33 @@ export const BoothDiscoveryModule: React.FC<BoothDiscoveryModuleProps> = ({
             </p>
           </div>
 
-          {/* 10-Slot Stamp Card Passport Grid */}
-          <div className="p-3 bg-white/40 rounded-2xl border border-slate-200/60">
+          {/* Stamp Card Passport Grid (4 Partner + 1 Game Booth) */}
+          <div className="p-3 bg-white/40 rounded-2xl border border-slate-200/60 space-y-2">
+            <div className="flex items-center justify-between text-[11px] font-medium text-slate-600 px-0.5">
+              <div className="flex items-center gap-1">
+                <span>Stamp Passport</span>
+                <span
+                  title="Collect 4 partner stamps to unlock the Nanobanana Game Booth!"
+                  className="w-3.5 h-3.5 rounded-full bg-slate-300 text-slate-700 flex items-center justify-center text-[9px] font-serif font-bold italic"
+                >
+                  i
+                </span>
+              </div>
+              <span className="font-bold text-slate-800">
+                {Math.min(claimedStamps.filter((s) => !s.toLowerCase().includes('nanobanana')).length, 4)}/4 Partner • {claimedStamps.some((s) => s.toLowerCase().includes('nanobanana')) ? 'Game ✓' : 'Game 🔒'}
+              </span>
+            </div>
+
+            {/* 4 Partner Stamps + 1 Game Booth Stamp */}
             <div className="grid grid-cols-5 gap-1.5">
-              {[...Array(10)].map((_, idx) => {
-                const isAwarded = claimedStamps.length > idx;
+              {[0, 1, 2, 3].map((idx) => {
+                const regularCount = claimedStamps.filter((s) => !s.toLowerCase().includes('nanobanana')).length;
+                const isAwarded = regularCount > idx;
                 return (
                   <div
                     key={idx}
-                    className={`w-8.5 h-8.5 rounded-xl flex items-center justify-center shadow-xs transition-transform ${
+                    title={`Partner Booth Stamp #${idx + 1}`}
+                    className={`h-9 rounded-xl flex items-center justify-center shadow-xs transition-transform ${
                       isAwarded
                         ? 'bg-[#91B9FF] text-blue-900 border border-blue-400 scale-105'
                         : 'bg-[#E2DBCF] text-slate-400 border border-slate-300/60'
@@ -87,7 +105,36 @@ export const BoothDiscoveryModule: React.FC<BoothDiscoveryModuleProps> = ({
                   </div>
                 );
               })}
+
+              {/* Game Booth Stamp */}
+              {(() => {
+                const regularCount = claimedStamps.filter((s) => !s.toLowerCase().includes('nanobanana')).length;
+                const hasGame = claimedStamps.some((s) => s.toLowerCase().includes('nanobanana'));
+                const isGameUnlocked = regularCount >= 4;
+                return (
+                  <div
+                    title={hasGame ? 'Nanobanana Game Stamp Collected!' : isGameUnlocked ? 'Game Booth Unlocked!' : 'Game Booth (Locked until 4 partner stamps)'}
+                    className={`h-9 rounded-xl flex items-center justify-center shadow-xs transition-transform text-sm relative ${
+                      hasGame
+                        ? 'bg-amber-300 text-amber-950 border border-amber-500 scale-105 font-bold'
+                        : isGameUnlocked
+                        ? 'bg-amber-100 text-amber-700 border-2 border-amber-400 animate-pulse'
+                        : 'bg-[#DCD5C7] text-slate-400 border border-slate-300'
+                    }`}
+                  >
+                    {hasGame ? '🎮' : isGameUnlocked ? '🎮' : '🔒'}
+                  </div>
+                );
+              })()}
             </div>
+
+            <p className="text-[10px] text-slate-500 italic font-serif">
+              {claimedStamps.filter((s) => !s.toLowerCase().includes('nanobanana')).length < 4
+                ? `Collect ${4 - claimedStamps.filter((s) => !s.toLowerCase().includes('nanobanana')).length} more partner stamp${4 - claimedStamps.filter((s) => !s.toLowerCase().includes('nanobanana')).length > 1 ? 's' : ''} to unlock Game Booth.`
+                : !claimedStamps.some((s) => s.toLowerCase().includes('nanobanana'))
+                ? 'Game Booth is unlocked! Visit Hall B - #03 for final stamp.'
+                : 'All stamps collected! Blind box reward unlocked! 🎁'}
+            </p>
           </div>
 
           <div className="pt-2 border-t border-slate-300/60">

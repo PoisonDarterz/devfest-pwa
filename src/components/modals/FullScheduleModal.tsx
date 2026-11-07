@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import type { Session } from '../../lib/types';
 import { CloseIcon } from '../common/Icons';
+import { getAvatarUrl } from '../../lib/avatar';
 
 interface FullScheduleModalProps {
   isOpen: boolean;
@@ -233,7 +234,7 @@ export const FullScheduleModal: React.FC<FullScheduleModalProps> = ({
                   <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <img
-                        src={session.speaker.avatar}
+                        src={session.speaker.avatar || getAvatarUrl(session.speaker.name)} onError={(e) => { (e.target as HTMLImageElement).src = getAvatarUrl(session.speaker.name); }}
                         alt={session.speaker.name}
                         className="w-8 h-8 rounded-full object-cover border border-slate-700 shrink-0"
                       />

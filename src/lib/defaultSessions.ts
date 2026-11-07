@@ -26,7 +26,7 @@ export const DEFAULT_SESSIONS: Session[] = [
     speaker: {
       name: 'Wei Chung',
       role: 'Speaker',
-      avatar: '',
+      avatar: '/speakers/LowWeiChung_Track1.png',
     },
     track: 'Builder Track',
     room: 'JC1',
@@ -42,7 +42,7 @@ export const DEFAULT_SESSIONS: Session[] = [
     speaker: {
       name: 'Doddi Priyambodo',
       role: 'Speaker',
-      avatar: '',
+      avatar: '/speakers/DoddiPriyambodo_Track1.webp',
     },
     track: 'Builder Track',
     room: 'JC1',
@@ -74,7 +74,7 @@ export const DEFAULT_SESSIONS: Session[] = [
     speaker: {
       name: 'Dr Poo',
       role: 'Speaker',
-      avatar: '',
+      avatar: '/speakers/DrPooKuanHoong_Track1.jpeg',
     },
     track: 'Builder Track',
     room: 'JC1',
@@ -90,7 +90,7 @@ export const DEFAULT_SESSIONS: Session[] = [
     speaker: {
       name: 'Trung Vo',
       role: 'Speaker',
-      avatar: '',
+      avatar: '/speakers/trung-vo-Track1.jpg',
     },
     track: 'Builder Track',
     room: 'JC1',
@@ -106,7 +106,7 @@ export const DEFAULT_SESSIONS: Session[] = [
     speaker: {
       name: 'Vin Lim',
       role: 'Speaker',
-      avatar: '',
+      avatar: '/speakers/VinLim_Track1.jpg',
     },
     track: 'Builder Track',
     room: 'JC1',
@@ -122,7 +122,7 @@ export const DEFAULT_SESSIONS: Session[] = [
     speaker: {
       name: 'Ts. Selena Yap',
       role: 'Speaker',
-      avatar: '',
+      avatar: '/speakers/Selena_Track1.jpeg',
     },
     track: 'Builder Track',
     room: 'JC1',
@@ -138,7 +138,7 @@ export const DEFAULT_SESSIONS: Session[] = [
     speaker: {
       name: 'Weiyuan Liu',
       role: 'Speaker',
-      avatar: '',
+      avatar: '/speakers/WeiYuan_Track1.jpeg',
     },
     track: 'Builder Track',
     room: 'JC1',
@@ -156,7 +156,7 @@ export const DEFAULT_SESSIONS: Session[] = [
     speaker: {
       name: 'Lai Fong',
       role: 'Speaker',
-      avatar: '',
+      avatar: '/speakers/LeongLaiFong_Track2.jpeg',
     },
     track: 'Developer Track',
     room: 'JC2',
@@ -172,7 +172,7 @@ export const DEFAULT_SESSIONS: Session[] = [
     speaker: {
       name: 'Darsshan',
       role: 'Speaker',
-      avatar: '',
+      avatar: '/speakers/DarsshanNair_Track2.jpeg',
     },
     track: 'Developer Track',
     room: 'JC2',
@@ -220,7 +220,7 @@ export const DEFAULT_SESSIONS: Session[] = [
     speaker: {
       name: 'Katie Barnett',
       role: 'Speaker',
-      avatar: '',
+      avatar: '/speakers/KatieBarnett_Track2.png',
     },
     track: 'Developer Track',
     room: 'JC2',
@@ -238,7 +238,7 @@ export const DEFAULT_SESSIONS: Session[] = [
     speaker: {
       name: 'Shang Yi',
       role: 'Speaker',
-      avatar: '',
+      avatar: '/speakers/LimShangYi_Track3.jpeg',
     },
     track: 'Hands-On Track',
     room: 'JC3',
@@ -254,7 +254,7 @@ export const DEFAULT_SESSIONS: Session[] = [
     speaker: {
       name: 'Anupam',
       role: 'Speaker',
-      avatar: '',
+      avatar: '/speakers/Anupam_Phoghat_1.jpg',
     },
     track: 'Hands-On Track',
     room: 'JC3',
@@ -270,7 +270,7 @@ export const DEFAULT_SESSIONS: Session[] = [
     speaker: {
       name: 'Lovee',
       role: 'Speaker',
-      avatar: '',
+      avatar: '/speakers/LoveeJain_Track3.jpeg',
     },
     track: 'Hands-On Track',
     room: 'JC3',
@@ -286,7 +286,7 @@ export const DEFAULT_SESSIONS: Session[] = [
     speaker: {
       name: 'Christine Tee',
       role: 'Speaker',
-      avatar: '',
+      avatar: '/speakers/ChristineTee_Track3.jpeg',
     },
     track: 'Hands-On Track',
     room: 'JC3',
@@ -302,7 +302,7 @@ export const DEFAULT_SESSIONS: Session[] = [
     speaker: {
       name: 'Jay Thakkar',
       role: 'Speaker',
-      avatar: '',
+      avatar: '/speakers/Jay_Thakkar.jfif',
     },
     track: 'Hands-On Track',
     room: 'JC3',
@@ -318,7 +318,7 @@ export const DEFAULT_SESSIONS: Session[] = [
     speaker: {
       name: 'Connie',
       role: 'Speaker',
-      avatar: '',
+      avatar: '/speakers/Connie_Track3.jpeg',
     },
     track: 'Hands-On Track',
     room: 'JC3',

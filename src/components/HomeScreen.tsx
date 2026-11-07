@@ -155,14 +155,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onOpenAdmin, i
     return () => clearInterval(timer);
   }, [eligibleUpcomingSessions.length]);
 
-  const discoveredBooth = booths[0] || {
-    id: '44fb4f52-7935-440d-9131-560cb488f344',
-    name: '42KL',
-    category: 'Community',
-    logoText: '42 KL',
+    const discoveredBooth = booths[0] || {
+    id: '09fe544d-180d-4fe7-9bdc-f904f655f7b4',
+    name: 'Logitech Booth',
+    category: 'Silver Sponsor',
+    logoText: 'Logitech',
     location: 'Hall A - #01',
-    description: '',
-    boothCode: 'BOOTH-42KL',
+    description: 'Next-gen developer peripherals and workspace productivity.',
+    boothCode: 'BOOTH-LOGITECH',
     points: 15,
   };
 

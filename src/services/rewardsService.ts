@@ -268,6 +268,27 @@ export const rewardsService = {
         };
       }
 
+      const isGameBooth =
+        booth.id === '43af99eb-2163-428e-9558-3516e6210bc8' ||
+        booth.booth_code?.toUpperCase() === 'BOOTH-NANOBANANA' ||
+        booth.name?.toLowerCase().includes('nanobanana');
+
+      if (isGameBooth) {
+        const regularCount = currentStamps.filter(
+          (s) =>
+            s !== '43af99eb-2163-428e-9558-3516e6210bc8' &&
+            s !== 'BOOTH-NANOBANANA' &&
+            !s.toLowerCase().includes('nanobanana')
+        ).length;
+        if (regularCount < 4) {
+          return {
+            success: false,
+            stamps: currentStamps,
+            message: `The Nanobanana Game Booth is locked! You must collect at least 4 partner booth stamps before earning the Game Booth stamp (${regularCount}/4 collected).`,
+          };
+        }
+      }
+
       if (currentStamps.includes(booth.id)) {
         return {
           success: false,
