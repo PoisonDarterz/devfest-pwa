@@ -58,7 +58,7 @@ export const DEFAULT_SESSIONS: Session[] = [
     speaker: {
       name: 'Panel: Zhi Yi, Lai Fong, Laavanya',
       role: 'Panelists',
-      avatar: '',
+      avatar: '/speakers/zhiyi_laifong_laavanya.jpeg',
     },
     track: 'Builder Track',
     room: 'JC1',
@@ -188,7 +188,7 @@ export const DEFAULT_SESSIONS: Session[] = [
     speaker: {
       name: 'Jun Feng, Julian Jong, Ammar Azman',
       role: 'Speakers',
-      avatar: '',
+      avatar: '/speakers/junfeng_julian_ammar.jpeg',
     },
     track: 'Developer Track',
     room: 'JC2',
@@ -202,9 +202,9 @@ export const DEFAULT_SESSIONS: Session[] = [
     id: '20000000-0000-0000-0000-000000000004',
     title: 'Spill the Tea on AI: Beyond the Prompt, Inside the Engine Powering AI',
     speaker: {
-      name: 'Tun Jian, Tan Ye Hur, Cheong Vensen Mu',
+      name: 'Tan Tun Jian, Cheong Ye Hur, Vensen Mu, Shuenrui Lee',
       role: 'Speakers',
-      avatar: '',
+      avatar: '/speakers/tan_cheong_mu_lee.jpeg',
     },
     track: 'Developer Track',
     room: 'JC2',

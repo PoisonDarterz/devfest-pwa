@@ -25,21 +25,15 @@ interface RewardsModuleProps {
   };
   onSelectReward?: (reward: RewardSelection) => void;
   onBackToHome: () => void;
-  onClaimStampDemo?: (boothId: string) => void;
 }
 
 export const RewardsModule: React.FC<RewardsModuleProps> = ({
-  claimedStamps: initialClaimedStamps,
+  claimedStamps,
   requiredStamps = 5,
   isRallyComplete = false,
   userProfile,
   onBackToHome,
 }) => {
-  const [localStamps, setLocalStamps] = useState<string[]>(initialClaimedStamps);
-
-  React.useEffect(() => {
-    setLocalStamps(initialClaimedStamps);
-  }, [initialClaimedStamps]);
 
   const [view, setView] = useState<'stamp_progress' | 'box_picker' | 'redemption'>('stamp_progress');
   const [selectedBoxIndex, setSelectedBoxIndex] = useState<number | null>(null);
@@ -87,42 +81,14 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
   const isGameBoothStamp = (idOrCode: string) =>
     idOrCode === '43af99eb-2163-428e-9558-3516e6210bc8' ||
     idOrCode === 'BOOTH-NANOBANANA' ||
-    idOrCode.toLowerCase().includes('nanobanana') ||
-    idOrCode === 'demo-game-booth';
+    idOrCode.toLowerCase().includes('nanobanana');
 
-  const hasGameBooth = localStamps.some(isGameBoothStamp);
-  const regularStamps = localStamps.filter((s) => !isGameBoothStamp(s));
+  const hasGameBooth = claimedStamps.some(isGameBoothStamp);
+  const regularStamps = claimedStamps.filter((s) => !isGameBoothStamp(s));
   const regularCount = regularStamps.length;
   const isGameBoothUnlocked = regularCount >= 4;
   const isUnlocked = isRallyComplete || (regularCount >= 4 && hasGameBooth);
   const unclaimedCount = userRewards.filter((r) => r.status !== 'claimed').length;
-
-  // Demo helpers to quickly test stamps
-  const handleAddDemoPartnerStamp = () => {
-    if (regularCount < 4) {
-      setLocalStamps((prev) => [...prev, `demo-partner-${regularCount + 1}`]);
-    }
-  };
-
-  const handleAddDemoGameStamp = () => {
-    if (!hasGameBooth) {
-      if (regularCount < 4) {
-        alert('You need 4 partner booth stamps before unlocking the Game Booth stamp!');
-        return;
-      }
-      setLocalStamps((prev) => [...prev, 'demo-game-booth']);
-    }
-  };
-
-  const handleFillAllStamps = () => {
-    setLocalStamps([
-      'demo-partner-1',
-      'demo-partner-2',
-      'demo-partner-3',
-      'demo-partner-4',
-      'demo-game-booth',
-    ]);
-  };
   // Staff claim for participant's swag item with accidental contact confirmation
   const handlePromptStaffClaim = (reward: UserRewardItem) => {
     setConfirmModal({
@@ -628,35 +594,6 @@ export const RewardsModule: React.FC<RewardsModuleProps> = ({
               </div>
             </div>
 
-            {/* DEMO TOOLBAR: Quick test buttons */}
-            <div className="flex flex-wrap items-center justify-center gap-2 pt-2 text-xs">
-              <button
-                type="button"
-                onClick={handleAddDemoPartnerStamp}
-                className="px-3 py-1.5 rounded-full bg-slate-800/90 hover:bg-slate-700 text-slate-300 font-medium border border-slate-700 transition-colors cursor-pointer"
-              >
-                +1 Partner ({Math.min(regularCount, 4)}/4)
-              </button>
-              <button
-                type="button"
-                onClick={handleAddDemoGameStamp}
-                disabled={regularCount < 4}
-                className={`px-3 py-1.5 rounded-full font-medium transition-colors cursor-pointer ${
-                  regularCount < 4
-                    ? 'bg-slate-800/40 text-slate-500 border border-slate-700/50 cursor-not-allowed'
-                    : 'bg-blue-600 hover:bg-blue-500 text-white shadow-xs'
-                }`}
-              >
-                + Game Stamp {hasGameBooth ? '✓' : ''}
-              </button>
-              <button
-                type="button"
-                onClick={handleFillAllStamps}
-                className="px-3 py-1.5 rounded-full bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold border border-amber-500/30 transition-colors cursor-pointer"
-              >
-                ⚡ Fill 4 + Game
-              </button>
-            </div>
             {/* CIRCULAR BACK BUTTON */}
             <div className="pt-4 pb-2">
               <button

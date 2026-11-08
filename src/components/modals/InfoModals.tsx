@@ -41,7 +41,7 @@ interface InfoModalsProps {
     linkedinUrl?: string;
     ticketType?: string;
   };
-  onClaimStampDemo: (boothId: string) => void;
+  onClaimStampDemo?: (boothId: string) => void;
   onClose: () => void;
   savedSessionIds?: string[];
   onToggleSaveSession?: (sessionId: string) => void;
@@ -62,7 +62,7 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
   stampFeedback,
   activeSession,
   userProfile,
-  onClaimStampDemo,
+  onClaimStampDemo: _onClaimStampDemo,
   onClose,
   savedSessionIds = [],
   onToggleSaveSession,
@@ -341,12 +341,7 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
                         ✓ Stamped
                       </span>
                     ) : (
-                      <button
-                        onClick={() => onClaimStampDemo(b.id)}
-                        className="px-2.5 py-1 bg-yellow-500/20 text-yellow-400 font-bold rounded-lg text-[11px] cursor-pointer hover:bg-yellow-500/30"
-                      >
-                        Claim Demo
-                      </button>
+                      <span className="text-slate-500 font-medium text-[11px] px-2 py-0.5 rounded bg-slate-800 border border-slate-700/60">Scan at booth</span>
                     )}
                   </div>
                 );

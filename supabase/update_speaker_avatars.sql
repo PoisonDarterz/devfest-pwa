@@ -69,3 +69,17 @@ WHERE id = '30000000-0000-0000-0000-000000000005' OR speaker_name ILIKE '%Jay Th
 UPDATE public.sessions 
 SET speaker_avatar = '/speakers/Connie_Track3.jpeg' 
 WHERE id = '30000000-0000-0000-0000-000000000006' OR speaker_name ILIKE '%Connie%';
+
+
+-- Multi-speaker and Panel Sessions
+UPDATE public.sessions 
+SET speaker_avatar = '/speakers/zhiyi_laifong_laavanya.jpeg' 
+WHERE id = '10000000-0000-0000-0000-000000000003' OR speaker_name ILIKE '%Zhi Yi%';
+
+UPDATE public.sessions 
+SET speaker_avatar = '/speakers/junfeng_julian_ammar.jpeg' 
+WHERE id = '20000000-0000-0000-0000-000000000003' OR speaker_name ILIKE '%Jun Feng%';
+
+UPDATE public.sessions 
+SET speaker_avatar = '/speakers/tan_cheong_mu_lee.jpeg' 
+WHERE id = '20000000-0000-0000-0000-000000000004' OR speaker_name ILIKE '%Tan Ye Hur%' OR speaker_name ILIKE '%Cheong%';
