@@ -1,6 +1,6 @@
 import React from 'react';
 import gdgklLogo from '../../assets/GDGKL-logo.png';
-import mapSvg from '../../assets/map.svg';
+import floorplanSvg from '../../assets/devfest-26-floorplan-draw.svg';
 import faqSvg from '../../assets/faq.svg';
 import gdgBwSvg from '../../assets/gdg-bw.svg';
 import odraVentureLogo from '../../assets/sponsors/odra-venture-logo.png';
@@ -76,6 +76,7 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
 }) => {
   const [notifStatus, setNotifStatus] = React.useState(() => getNotificationStatus());
   const [testNotificationFeedback, setTestNotificationFeedback] = React.useState<string | null>(null);
+  const [isFloorplanZoomed, setIsFloorplanZoomed] = React.useState(false);
 
   React.useEffect(() => {
     if (activeModal === 'notifications') {
@@ -133,7 +134,7 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
-      <div className={`glass-card rounded-3xl p-6 border border-slate-800 w-full space-y-4 max-h-[85vh] overflow-y-auto relative animate-in fade-in zoom-in-95 duration-200 ${activeModal === 'about_gdg' ? 'max-w-md' : 'max-w-sm'}`}>
+      <div className={`glass-card rounded-3xl p-6 border border-slate-800 w-full space-y-4 max-h-[85vh] overflow-y-auto relative animate-in fade-in zoom-in-95 duration-200 ${activeModal === 'about_gdg' ? 'max-w-md' : activeModal === 'venue_map' ? 'max-w-xl' : 'max-w-sm'}`}>
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <h3 className="font-heading font-bold text-base text-white capitalize">
             {activeModal === 'rewards' && 'DevFest Reward Stamps'}
@@ -156,35 +157,147 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
 
         {/* VENUE MAP DIALOG */}
         {activeModal === 'venue_map' && (
-          <div className="space-y-4 text-xs">
-            <div className="bg-slate-900 rounded-2xl p-4 space-y-3 border border-slate-800 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-[#ADC8FF] mx-auto flex items-center justify-center shadow-md">
-                <img src={mapSvg} alt="Venue Map" className="w-10 h-10 object-contain" />
+          <div className="space-y-3.5 text-xs">
+            {/* Floorplan Header */}
+            <div className="flex items-center justify-between px-0.5">
+              <div className="space-y-0.5">
+                <p className="font-heading font-extrabold text-sm text-white">Event Floorplan</p>
+                <p className="text-[11px] text-slate-400">Sunway University • Jeffrey Cheah Hall (JC1, JC2, JC3)</p>
               </div>
-              <div className="space-y-1">
-                <p className="font-extrabold text-sm text-emerald-400">KL Convention Centre (KLCC)</p>
-                <p className="text-slate-300 text-[11px]">Level 3 Grand Ballroom & Exhibition Halls</p>
+              <button
+                type="button"
+                onClick={() => setIsFloorplanZoomed(true)}
+                className="px-2.5 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700 text-[10px] font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
+                title="Tap to zoom floorplan"
+              >
+                <span>🔍</span>
+                <span>Zoom View</span>
+              </button>
+            </div>
+
+            {/* Interactive Floorplan Drawing Card */}
+            <div
+              onClick={() => setIsFloorplanZoomed(true)}
+              className="relative group bg-white rounded-2xl p-2 border-2 border-slate-700 overflow-hidden shadow-xl cursor-zoom-in transition-all hover:border-emerald-500/80"
+            >
+              <img
+                src={floorplanSvg}
+                alt="DevFest 2026 Floorplan"
+                className="w-full h-auto object-contain rounded-xl max-h-[300px] select-none"
+              />
+              <div className="absolute inset-0 bg-slate-950/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none rounded-xl">
+                <span className="px-3 py-1.5 rounded-full bg-slate-900/90 text-white font-bold text-xs shadow-lg border border-white/20 flex items-center gap-1.5">
+                  <span>🔍</span> Tap to Expand Fullscreen
+                </span>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 text-left">
-                <div className="p-2.5 bg-slate-800/90 rounded-xl border border-slate-700">
-                  <span className="text-blue-400 font-bold block">Hall A</span>
-                  <span className="text-slate-300 text-[10px]">Tech Stage & Partner Booths</span>
+            </div>
+
+            {/* Room / Track Quick Reference */}
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="p-2.5 bg-red-950/40 border border-red-500/30 rounded-xl">
+                <span className="block font-heading font-black text-xs text-red-400">JC1</span>
+                <span className="block text-[10px] font-medium text-slate-300">Builder Track</span>
+              </div>
+              <div className="p-2.5 bg-blue-950/40 border border-blue-500/30 rounded-xl">
+                <span className="block font-heading font-black text-xs text-blue-400">JC2</span>
+                <span className="block text-[10px] font-medium text-slate-300">Developer Track</span>
+              </div>
+              <div className="p-2.5 bg-amber-950/40 border border-amber-500/30 rounded-xl">
+                <span className="block font-heading font-black text-xs text-amber-400">JC3</span>
+                <span className="block text-[10px] font-medium text-slate-300">Hands-On Track</span>
+              </div>
+            </div>
+
+            {/* Partner Booths Quick Legend */}
+            <div className="p-3 bg-slate-900/90 rounded-2xl border border-slate-800 space-y-2">
+              <p className="font-mono font-bold text-[10px] uppercase tracking-wider text-slate-400">
+                Key Facilities & Booths
+              </p>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] text-slate-300">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded bg-slate-800 text-slate-200 flex items-center justify-center font-bold font-mono text-[9px] border border-slate-700">A</span>
+                  <span className="truncate">Logitech</span>
                 </div>
-                <div className="p-2.5 bg-slate-800/90 rounded-xl border border-slate-700">
-                  <span className="text-yellow-400 font-bold block">Hall B</span>
-                  <span className="text-slate-300 text-[10px]">Web Stage & Sponsor Booths</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded bg-slate-800 text-slate-200 flex items-center justify-center font-bold font-mono text-[9px] border border-slate-700">B</span>
+                  <span className="truncate">Jobstreet by SEEK</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded bg-slate-800 text-slate-200 flex items-center justify-center font-bold font-mono text-[9px] border border-slate-700">C</span>
+                  <span className="truncate">Odra Venture</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded bg-slate-800 text-slate-200 flex items-center justify-center font-bold font-mono text-[9px] border border-slate-700">D</span>
+                  <span className="truncate">Cradle Fund</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded bg-slate-800 text-slate-200 flex items-center justify-center font-bold font-mono text-[9px] border border-slate-700">E</span>
+                  <span className="truncate">Ice Cream Station</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded bg-slate-800 text-slate-200 flex items-center justify-center font-bold font-mono text-[9px] border border-slate-700">F</span>
+                  <span className="truncate">Popcorn & Cotton Candy</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded bg-slate-800 text-slate-200 flex items-center justify-center font-bold font-mono text-[9px] border border-slate-700">G</span>
+                  <span className="truncate">Game Booth</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded bg-slate-800 text-slate-200 flex items-center justify-center font-bold font-mono text-[9px] border border-slate-700">H</span>
+                  <span className="truncate">Deriv</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded bg-slate-800 text-slate-200 flex items-center justify-center font-bold font-mono text-[9px] border border-slate-700">I</span>
+                  <span className="truncate">42 Malaysia</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded bg-slate-800 text-slate-200 flex items-center justify-center font-bold font-mono text-[9px] border border-slate-700">J</span>
+                  <span className="truncate">GDG KL Booth</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded bg-emerald-900/60 text-emerald-300 flex items-center justify-center font-bold text-[9px] border border-emerald-500/40">★</span>
+                  <span className="truncate">Vibing Lounge</span>
                 </div>
               </div>
             </div>
 
-            <div className="p-3.5 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2">
-              <p className="font-bold text-white text-xs">How to Get Here:</p>
-              <ul className="list-disc list-inside space-y-1 text-slate-300 text-[11px] leading-relaxed">
-                <li><strong>LRT:</strong> Kelana Jaya Line → KLCC Station (5-min covered walkway).</li>
-                <li><strong>MRT:</strong> Putrajaya Line → Persiaran KLCC Station (Exit 2).</li>
-                <li><strong>Parking:</strong> Available at KLCC Basement Car Park & Suria KLCC.</li>
-              </ul>
-            </div>
+            {/* Fullscreen Zoom Lightbox Modal */}
+            {isFloorplanZoomed && (
+              <div
+                className="fixed inset-0 z-[100] bg-slate-950/95 backdrop-blur-md flex flex-col p-3 sm:p-6 animate-in fade-in duration-200"
+                onClick={() => setIsFloorplanZoomed(false)}
+              >
+                <div className="flex items-center justify-between pb-3 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-heading font-black text-sm text-white">DevFest 2026 Floorplan</span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      Fullscreen
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsFloorplanZoomed(false)}
+                    className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors cursor-pointer"
+                    aria-label="Close fullscreen map"
+                  >
+                    <CloseIcon />
+                  </button>
+                </div>
+                <div
+                  className="grow flex items-center justify-center overflow-auto rounded-2xl bg-white p-2 border-2 border-slate-700"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <img
+                    src={floorplanSvg}
+                    alt="DevFest 2026 Floorplan Detailed"
+                    className="max-w-full max-h-[82vh] w-auto h-auto object-contain select-none"
+                  />
+                </div>
+                <p className="text-center text-[11px] text-slate-400 pt-2 shrink-0">
+                  Pinch or scroll to inspect • Tap outside or close button to return
+                </p>
+              </div>
+            )}
 
             <div className="pt-2 text-center border-t border-slate-800">
               <GdgKlLogo inverted />
