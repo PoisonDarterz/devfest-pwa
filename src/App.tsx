@@ -111,7 +111,7 @@ export const App: React.FC = () => {
       if (!status.isWhitelisted) {
         await supabase.auth.signOut();
         setAuthError(
-          `Your Google account (${googleEmail}) is not on the ticketed whitelist. Please sign in with the email you registered on Peatix, or refer to the DevFest registration booth to check your registration details.`
+          `Your Google account (${googleEmail}) is not on the ticketed whitelist. Please sign in with the email you registered on Luma, or refer to the DevFest registration booth to check your registration details.`
         );
         return;
       }

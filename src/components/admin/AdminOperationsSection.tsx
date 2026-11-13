@@ -844,7 +844,7 @@ gst-EML4PlfvWqls3Qb,AnnexHub Test XS,,,nick+devfest-test-xs@annexcs.com,,2026-10
                   className="w-full px-3.5 py-2.5 bg-slate-950 text-xs text-white rounded-xl border border-slate-800 focus:outline-none focus:border-emerald-500 transition-colors"
                 >
                   <option value="Walk-in Attendee">Walk-in Attendee (On-site Counter)</option>
-                  <option value="Standard Attendee">Standard Attendee (Peatix)</option>
+                  <option value="Standard Attendee">Standard Attendee (Luma)</option>
                   <option value="VIP Attendee">VIP Attendee</option>
                   <option value="Speaker">Speaker</option>
                   <option value="Sponsor">Sponsor</option>

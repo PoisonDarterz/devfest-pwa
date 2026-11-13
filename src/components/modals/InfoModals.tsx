@@ -733,7 +733,7 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
             )}
 
             <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
-              <span className="text-emerald-400 font-semibold">✓ Peatix Ticket Linked</span>
+              <span className="text-emerald-400 font-semibold">✓ Luma Ticket Linked</span>
               <span
                 className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                   userProfile.ticketType?.toLowerCase() === 'core team'

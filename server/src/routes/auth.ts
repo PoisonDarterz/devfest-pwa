@@ -189,7 +189,7 @@ authRouter.post('/validate-ticket', async (req: Request, res: Response): Promise
     res.json({
       isWhitelisted: false,
       ticketType: null,
-      message: 'Email not found in ticketed whitelist. Please use the email registered on Peatix, or refer to the DevFest registration booth to check your registration details.',
+      message: 'Email not found in ticketed whitelist. Please use the email registered on Luma, or refer to the DevFest registration booth to check your registration details.',
     });
   }
 });

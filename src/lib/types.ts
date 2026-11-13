@@ -90,5 +90,5 @@ export interface FAQItem {
   id?: string;
   question: string;
   answer: string;
-  category: 'Venue & Access' | 'Peatix & Tickets' | 'WiFi & Apps' | 'Booths & Prizes' | string;
+  category: 'Venue & Access' | 'Luma & Tickets' | 'WiFi & Apps' | 'Booths & Prizes' | string;
 }

@@ -212,7 +212,7 @@ authRouter.post('/validate-ticket', async (c) => {
       isWhitelisted: false,
       ticketType: null,
       message:
-        'Email not found in ticketed whitelist. Please use the email registered on Peatix, or refer to the DevFest registration booth to check your registration details.',
+        'Email not found in ticketed whitelist. Please use the email registered on Luma, or refer to the DevFest registration booth to check your registration details.',
     });
   }
 });

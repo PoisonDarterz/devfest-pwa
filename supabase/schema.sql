@@ -8,7 +8,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- -----------------------------------------------------------------------------
 -- 1. TICKETING WHITELISTS TABLE (Platform-Agnostic Ticketed Email List)
--- Organizers import attendees from Luma, Peatix, Ticket2u, or CSV exports.
+-- Organizers import attendees from Luma or CSV exports.
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.ticketing_whitelists (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
