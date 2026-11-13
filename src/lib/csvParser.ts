@@ -1,6 +1,7 @@
 /**
  * Robust CSV Parser & Luma CSV Field Mapper
  * Supports RFC 4180 compliant CSV (quoted fields, commas in quotes, escaped quotes)
+ * Adapted for Google DevFest KL 2026 attendee export schema.
  */
 
 export interface ParsedWhitelistRow {
@@ -12,22 +13,35 @@ export interface ParsedWhitelistRow {
   job_title?: string;
   company?: string;
   tshirt_size?: string;
+  phone_number?: string;
+  approval_status?: string;
   notes?: string;
+}
+
+export interface InvalidCsvRow {
+  rowNumber: number;
+  reason: string;
+  raw: string;
+  email?: string;
+  name?: string;
+  guestId?: string;
+  status?: string;
 }
 
 export interface CsvParseResult {
   totalRows: number;
   validRows: ParsedWhitelistRow[];
-  invalidRows: { rowNumber: number; reason: string; raw: string }[];
+  invalidRows: InvalidCsvRow[];
   detectedColumns: {
-    email?: string;
-    name?: string;
     guestId?: string;
+    name?: string;
+    email?: string;
     qrUrl?: string;
     ticket?: string;
     jobTitle?: string;
     company?: string;
     tshirt?: string;
+    approvalStatus?: string;
   };
 }
 
@@ -93,14 +107,31 @@ export function parseCsvToGrid(text: string): string[][] {
 }
 
 /**
- * Normalizes header strings for flexible fuzzy matching
+ * Normalizes header strings for flexible matching (case-insensitive, alphanumeric only)
  */
 function normalizeHeader(h: string): string {
   return h.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
 /**
- * Parses Luma (or generic attendee) CSV text into typed database-ready whitelist items.
+ * Maps raw ticket strings to application attendee categories
+ */
+function normalizeTicketType(rawTicket: string): string {
+  const clean = (rawTicket || '').trim();
+  if (!clean) return 'Standard Attendee';
+  const lower = clean.toLowerCase();
+  if (lower === 'standard' || lower === 'standard attendee' || lower === 'standard pass') return 'Standard Attendee';
+  if (lower.includes('vip')) return 'VIP Attendee';
+  if (lower.includes('walk-in') || lower.includes('walkin')) return 'Walk-in Attendee';
+  if (lower.includes('speaker')) return 'Speaker';
+  if (lower.includes('organizer') || lower.includes('organiser')) return 'Organizer';
+  if (lower.includes('core')) return 'Core Team';
+  if (lower.includes('sponsor')) return 'Sponsor';
+  return clean;
+}
+
+/**
+ * Parses Luma attendee CSV text with the updated export headers into typed database-ready whitelist items.
  */
 export function parseLumaCsv(csvText: string): CsvParseResult {
   const grid = parseCsvToGrid(csvText);
@@ -117,59 +148,67 @@ export function parseLumaCsv(csvText: string): CsvParseResult {
   const rawHeaders = grid[0];
   const normalizedHeaders = rawHeaders.map(normalizeHeader);
 
-  // Column index finders
+  // Column index finder checking candidate names in priority order
   const findIndex = (possibleNames: string[]): number => {
-    const normPossible = possibleNames.map(normalizeHeader);
-    return normalizedHeaders.findIndex((h) => normPossible.includes(h));
+    for (const name of possibleNames) {
+      const norm = normalizeHeader(name);
+      const idx = normalizedHeaders.indexOf(norm);
+      if (idx !== -1) return idx;
+    }
+    return -1;
   };
 
-  const emailIdx = findIndex(['email', 'e-mail', 'mail', 'attendee email', 'email address']);
-  const nameIdx = findIndex(['name', 'full_name', 'fullname', 'attendee name', 'guest name']);
+  const guestIdIdx = findIndex(['guest_id', 'guestid', 'external_ref_id']);
+  const nameIdx = findIndex(['name', 'full_name', 'fullname', 'attendee name']);
   const firstNameIdx = findIndex(['first_name', 'firstname', 'first name']);
   const lastNameIdx = findIndex(['last_name', 'lastname', 'last name']);
-  const guestIdIdx = findIndex(['guest_id', 'guestid', 'external_ref_id', 'ticket_id', 'id']);
-  const qrUrlIdx = findIndex(['qr_code_url', 'qrcodeurl', 'qr_payload', 'qr payload', 'qr_code']);
-  const ticketIdx = findIndex(['ticket_name', 'ticketname', 'ticket_type', 'ticket', 'ticket type']);
+  const emailIdx = findIndex(['email', 'attendee email', 'email address']);
+  const phoneIdx = findIndex(['phone_number', 'phone', 'phonenumber', 'mobile']);
+  const approvalStatusIdx = findIndex(['approval_status', 'approvalstatus', 'status']);
+  const qrUrlIdx = findIndex(['qr_code_url', 'qrcodeurl', 'qr_payload', 'qr payload']);
+  const ticketIdx = findIndex(['ticket_name', 'ticketname', 'ticket_type_id', 'ticket_type', 'ticket']);
   const jobTitleIdx = findIndex(['job title', 'jobtitle', 'job_title', 'title', 'role']);
   const companyIdx = findIndex(['company / institution', 'company/institution', 'company', 'institution', 'organization']);
-  const tshirtIdx = findIndex(['t-shirt size (standard sizing)', 't-shirt size', 'tshirtsize', 'tshirt_size', 'tshirt', 'shirt size']);
+
+  // T-Shirt size matcher (handles full long survey question with emojis and notes)
+  let tshirtIdx = findIndex([
+    't-shirt size (standard sizing) [other sizes are now out of stock due to a strict timeline, we apologise for the inconveniences caused 🙏]',
+    't-shirt size (standard sizing)',
+    't-shirt size',
+    'tshirtsize',
+    'tshirt_size',
+    'tshirt',
+    'shirt size',
+  ]);
+  if (tshirtIdx === -1) {
+    tshirtIdx = normalizedHeaders.findIndex(
+      (h) => h.startsWith('tshirtsize') || h.includes('tshirt') || h.includes('shirtsize')
+    );
+  }
 
   const detectedColumns = {
-    email: emailIdx !== -1 ? rawHeaders[emailIdx] : undefined,
-    name: nameIdx !== -1 ? rawHeaders[nameIdx] : (firstNameIdx !== -1 ? `${rawHeaders[firstNameIdx]} + ${rawHeaders[lastNameIdx] || ''}` : undefined),
     guestId: guestIdIdx !== -1 ? rawHeaders[guestIdIdx] : undefined,
+    name:
+      nameIdx !== -1
+        ? rawHeaders[nameIdx]
+        : firstNameIdx !== -1
+        ? `${rawHeaders[firstNameIdx]} + ${rawHeaders[lastNameIdx] || ''}`
+        : undefined,
+    email: emailIdx !== -1 ? rawHeaders[emailIdx] : undefined,
     qrUrl: qrUrlIdx !== -1 ? rawHeaders[qrUrlIdx] : undefined,
     ticket: ticketIdx !== -1 ? rawHeaders[ticketIdx] : undefined,
     jobTitle: jobTitleIdx !== -1 ? rawHeaders[jobTitleIdx] : undefined,
     company: companyIdx !== -1 ? rawHeaders[companyIdx] : undefined,
     tshirt: tshirtIdx !== -1 ? rawHeaders[tshirtIdx] : undefined,
+    approvalStatus: approvalStatusIdx !== -1 ? rawHeaders[approvalStatusIdx] : undefined,
   };
 
   const validRows: ParsedWhitelistRow[] = [];
-  const invalidRows: { rowNumber: number; reason: string; raw: string }[] = [];
+  const invalidRows: InvalidCsvRow[] = [];
 
   for (let r = 1; r < grid.length; r++) {
     const row = grid[r];
     const rawLine = row.join(',');
-
-    if (emailIdx === -1) {
-      invalidRows.push({
-        rowNumber: r + 1,
-        reason: 'Header row is missing an "email" column.',
-        raw: rawLine,
-      });
-      continue;
-    }
-
-    const email = (row[emailIdx] || '').trim().toLowerCase();
-    if (!email || !email.includes('@')) {
-      invalidRows.push({
-        rowNumber: r + 1,
-        reason: 'Missing or invalid email address.',
-        raw: rawLine,
-      });
-      continue;
-    }
 
     let fullName = nameIdx !== -1 ? (row[nameIdx] || '').trim() : '';
     if (!fullName && firstNameIdx !== -1) {
@@ -177,13 +216,56 @@ export function parseLumaCsv(csvText: string): CsvParseResult {
       const ln = lastNameIdx !== -1 ? (row[lastNameIdx] || '').trim() : '';
       fullName = [fn, ln].filter(Boolean).join(' ');
     }
+    const guestId = guestIdIdx !== -1 ? (row[guestIdIdx] || '').trim() : '';
 
-    const externalRefId = guestIdIdx !== -1 ? (row[guestIdIdx] || '').trim() : '';
+    if (emailIdx === -1) {
+      invalidRows.push({
+        rowNumber: r + 1,
+        reason: 'Header row is missing an "email" column.',
+        raw: rawLine,
+        name: fullName || undefined,
+        guestId: guestId || undefined,
+      });
+      continue;
+    }
+
+    const rawEmail = (row[emailIdx] || '').trim();
+    const email = rawEmail.toLowerCase();
+    if (!email || !email.includes('@')) {
+      invalidRows.push({
+        rowNumber: r + 1,
+        reason: rawEmail ? `Invalid email address format ("${rawEmail}").` : 'Missing email address.',
+        raw: rawLine,
+        email: rawEmail || undefined,
+        name: fullName || undefined,
+        guestId: guestId || undefined,
+      });
+      continue;
+    }
+
+    // Skip registrations that were declined, rejected, or cancelled
+    const approvalStatus = approvalStatusIdx !== -1 ? (row[approvalStatusIdx] || '').trim().toLowerCase() : '';
+    if (approvalStatus === 'declined' || approvalStatus === 'cancelled' || approvalStatus === 'rejected') {
+      invalidRows.push({
+        rowNumber: r + 1,
+        reason: `Registration status is "${approvalStatus}" (not approved).`,
+        raw: rawLine,
+        email: email || undefined,
+        name: fullName || undefined,
+        guestId: guestId || undefined,
+        status: approvalStatus,
+      });
+      continue;
+    }
+
+    const externalRefId = guestId;
     const qrPayload = qrUrlIdx !== -1 ? (row[qrUrlIdx] || '').trim() : '';
-    const ticketType = (ticketIdx !== -1 ? (row[ticketIdx] || '').trim() : '') || 'Standard Attendee';
+    const rawTicket = ticketIdx !== -1 ? (row[ticketIdx] || '').trim() : '';
+    const ticketType = normalizeTicketType(rawTicket);
     const jobTitle = jobTitleIdx !== -1 ? (row[jobTitleIdx] || '').trim() : '';
     const company = companyIdx !== -1 ? (row[companyIdx] || '').trim() : '';
     const tshirtSize = tshirtIdx !== -1 ? (row[tshirtIdx] || '').trim() : '';
+    const phone = phoneIdx !== -1 ? (row[phoneIdx] || '').trim() : '';
 
     validRows.push({
       email,
@@ -194,7 +276,9 @@ export function parseLumaCsv(csvText: string): CsvParseResult {
       job_title: jobTitle || undefined,
       company: company || undefined,
       tshirt_size: tshirtSize || undefined,
-      notes: 'Imported via Luma CSV',
+      phone_number: phone || undefined,
+      approval_status: approvalStatus || undefined,
+      notes: phone ? `Phone: ${phone}` : 'Imported via Luma CSV',
     });
   }
 

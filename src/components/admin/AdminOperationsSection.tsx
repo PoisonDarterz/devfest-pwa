@@ -23,6 +23,7 @@ export const AdminOperationsSection: React.FC = () => {
   const [importFeedback, setImportFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [clearExistingBeforeImport, setClearExistingBeforeImport] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [csvPreviewTab, setCsvPreviewTab] = useState<'valid' | 'skipped'>('valid');
 
   /* --- BOOTH QR GENERATOR STATE ---
   const [booths, setBooths] = useState<Booth[]>([]);
@@ -104,6 +105,7 @@ export const AdminOperationsSection: React.FC = () => {
     }
     const result = parseLumaCsv(raw);
     setParseResult(result);
+    setCsvPreviewTab('valid');
   };
 
   const handleFileUpload = (file: File) => {
@@ -116,7 +118,7 @@ export const AdminOperationsSection: React.FC = () => {
   };
 
   const handleLoadSampleLumaCsv = () => {
-    const sample = `guest_id,name,first_name,last_name,email,phone_number,created_at,approval_status,checked_in_at,utm_source,utm_medium,utm_campaign,utm_term,utm_content,google_click_id,meta_click_id,x_click_id,linkedin_click_id,tiktok_click_id,reddit_click_id,yandex_click_id,referrer,referred_by,qr_code_url,amount,amount_tax,amount_discount,currency,coupon_code,eth_address,solana_address,survey_response_rating,survey_response_feedback,ticket_type_id,ticket_name,Job Title,Company / Institution,T-Shirt Size (Standard Sizing)
+    const sample = `guest_id,name,first_name,last_name,email,phone_number,created_at,approval_status,checked_in_at,utm_source,utm_medium,utm_campaign,utm_term,utm_content,google_click_id,meta_click_id,x_click_id,linkedin_click_id,tiktok_click_id,reddit_click_id,yandex_click_id,referrer,referred_by,qr_code_url,amount,amount_tax,amount_discount,currency,coupon_code,eth_address,solana_address,survey_response_rating,survey_response_feedback,ticket_type_id,ticket_name,Job Title,Company / Institution,"T-Shirt Size (Standard Sizing) [Other sizes are now out of stock due to a strict timeline, we apologise for the inconveniences caused 🙏]"
 gst-auuQTTSMZ4kELVH,Min Han Lai,Min Han,Lai,2004laiminhan@gmail.com,,2026-10-18T15:00:21.753Z,approved,,,,,,,,,,,,,,,,https://luma.com/check-in/evt-Oe2V97Qj3BoILBV?pk=qgbP7Ial653qHmL,MYR 0.00,MYR 0.00,"MYR 99,999.00",myr,TEST123,,,,,ttype-QdJ2ECNwbVaPD39,Standard,Jiayong slaves,UM,L
 gst-wDzb1PMM9xEf4q2,AnnexHub Test XXL,,,nick+devfest-test-xxl@annexcs.com,,2026-10-18T04:05:24.786Z,approved,,,,,,,,,,,,,,,,https://luma.com/check-in/evt-Oe2V97Qj3BoILBV?pk=Pjf1ILLngSoqvBI,$0.00,$0.00,$0.00,usd,,,,,,ttype-QdJ2ECNwbVaPD39,Standard,Tester,AnnexHub,XXL
 gst-rwm7DCuCkbrslue,Siti,Siti,,nick+devfest-test-single@annexcs.com,,2026-10-18T04:05:24.786Z,approved,,,,,,,,,,,,,,,,https://luma.com/check-in/evt-Oe2V97Qj3BoILBV?pk=OKDi6WKqRmPxbfX,$0.00,$0.00,$0.00,usd,,,,,,ttype-QdJ2ECNwbVaPD39,Standard,Developer,Google Developer Space,S
@@ -698,20 +700,39 @@ gst-EML4PlfvWqls3Qb,AnnexHub Test XS,,,nick+devfest-test-xs@annexcs.com,,2026-10
                   </h4>
                   <p className="text-[11px] text-slate-400">
                     {parseResult
-                      ? `${parseResult.validRows.length} valid attendee(s) ready for upsert`
+                      ? csvPreviewTab === 'valid'
+                        ? `${parseResult.validRows.length} valid attendee(s) ready for upsert`
+                        : `${parseResult.invalidRows.length} skipped record(s) omitted from whitelist`
                       : 'No CSV parsed yet'}
                   </p>
                 </div>
 
                 {parseResult && (
                   <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-mono font-bold">
-                      {parseResult.validRows.length} Valid
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCsvPreviewTab('valid')}
+                      className={`px-3 py-1 rounded-full text-[10px] font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        csvPreviewTab === 'valid'
+                          ? 'bg-emerald-500 text-slate-950 shadow-sm ring-2 ring-emerald-400/40'
+                          : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20'
+                      }`}
+                    >
+                      <span>✓ {parseResult.validRows.length} Valid</span>
+                    </button>
                     {parseResult.invalidRows.length > 0 && (
-                      <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-mono font-bold">
-                        {parseResult.invalidRows.length} Skipped
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setCsvPreviewTab('skipped')}
+                        className={`px-3 py-1 rounded-full text-[10px] font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          csvPreviewTab === 'skipped'
+                            ? 'bg-amber-400 text-slate-950 shadow-sm ring-2 ring-amber-300/40'
+                            : 'bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25'
+                        }`}
+                        title="Click to view all skipped records"
+                      >
+                        <span>⚠️ {parseResult.invalidRows.length} Skipped</span>
+                      </button>
                     )}
                   </div>
                 )}
@@ -734,60 +755,142 @@ gst-EML4PlfvWqls3Qb,AnnexHub Test XS,,,nick+devfest-test-xs@annexcs.com,,2026-10
                               : 'bg-slate-900 text-slate-500 border border-slate-800'
                           }`}
                         >
-                          {colName ? `✓ ${key} (${colName})` : `✗ ${key}`}
+                          {colName ? `✓ ${key} (${colName.length > 20 ? colName.slice(0, 20) + "..." : colName})` : `✗ ${key}`}
                         </span>
                       ))}
                     </div>
                   </div>
 
-                  {/* Preview Table (First 5 rows) */}
-                  <div className="overflow-x-auto max-h-[320px] overflow-y-auto">
-                    <table className="w-full text-left text-xs text-slate-300">
-                      <thead className="bg-slate-950/80 text-[10px] uppercase font-mono text-slate-400 border-b border-slate-800 sticky top-0">
-                        <tr>
-                          <th className="py-2 px-2.5">Attendee</th>
-                          <th className="py-2 px-2.5">Email</th>
-                          <th className="py-2 px-2.5">Ticket</th>
-                          <th className="py-2 px-2.5">Company / Role</th>
-                          <th className="py-2 px-2.5">Luma QR</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-800/60">
-                        {parseResult.validRows.slice(0, 5).map((row, idx) => (
-                          <tr key={idx} className="hover:bg-slate-800/30">
-                            <td className="py-2 px-2.5 font-bold text-white">
-                              {row.full_name || '—'}
-                            </td>
-                            <td className="py-2 px-2.5 font-mono text-[11px] text-emerald-300">
-                              {row.email}
-                            </td>
-                            <td className="py-2 px-2.5">
-                              <span className="px-2 py-0.5 rounded-full bg-slate-800 text-[10px] font-bold text-slate-300 border border-slate-700">
-                                {row.ticket_type || 'Standard'}
-                              </span>
-                            </td>
-                            <td className="py-2 px-2.5 text-[11px] text-slate-400">
-                              {[row.job_title, row.company].filter(Boolean).join(' • ') || '—'}
-                            </td>
-                            <td className="py-2 px-2.5">
-                              {row.qr_payload ? (
-                                <span className="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 text-[9px] font-mono">
-                                  Luma QR ✓
-                                </span>
-                              ) : (
-                                <span className="text-[10px] text-slate-500 font-mono">None</span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  {csvPreviewTab === 'valid' ? (
+                    <>
+                      {/* Valid Rows Preview Table (First 5 rows) */}
+                      <div className="overflow-x-auto max-h-[320px] overflow-y-auto">
+                        <table className="w-full text-left text-xs text-slate-300">
+                          <thead className="bg-slate-950/80 text-[10px] uppercase font-mono text-slate-400 border-b border-slate-800 sticky top-0">
+                            <tr>
+                              <th className="py-2 px-2.5">Attendee</th>
+                              <th className="py-2 px-2.5">Email</th>
+                              <th className="py-2 px-2.5">Ticket</th>
+                              <th className="py-2 px-2.5">Company / Role</th>
+                              <th className="py-2 px-2.5">Size</th>
+                              <th className="py-2 px-2.5">Luma QR</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/60">
+                            {parseResult.validRows.slice(0, 5).map((row, idx) => (
+                              <tr key={idx} className="hover:bg-slate-800/30">
+                                <td className="py-2 px-2.5 font-bold text-white">
+                                  {row.full_name || '—'}
+                                </td>
+                                <td className="py-2 px-2.5 font-mono text-[11px] text-emerald-300">
+                                  {row.email}
+                                </td>
+                                <td className="py-2 px-2.5">
+                                  <span className="px-2 py-0.5 rounded-full bg-slate-800 text-[10px] font-bold text-slate-300 border border-slate-700">
+                                    {row.ticket_type || 'Standard'}
+                                  </span>
+                                </td>
+                                <td className="py-2 px-2.5 text-[11px] text-slate-400">
+                                  {[row.job_title, row.company].filter(Boolean).join(' • ') || '—'}
+                                </td>
+                                <td className="py-2 px-2.5">
+                                  {row.tshirt_size ? (
+                                    <span className="px-1.5 py-0.5 rounded bg-blue-950/80 text-blue-300 border border-blue-800/60 text-[10px] font-mono font-bold">
+                                      {row.tshirt_size}
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] text-slate-500 font-mono">—</span>
+                                  )}
+                                </td>
+                                <td className="py-2 px-2.5">
+                                  {row.qr_payload ? (
+                                    <span className="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 text-[9px] font-mono">
+                                      Luma QR ✓
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] text-slate-500 font-mono">None</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
 
-                  {parseResult.validRows.length > 5 && (
-                    <p className="text-[11px] text-slate-500 font-mono text-center">
-                      + {parseResult.validRows.length - 5} more attendee row(s) will be imported
-                    </p>
+                      {parseResult.validRows.length > 5 && (
+                        <p className="text-[11px] text-slate-500 font-mono text-center">
+                          + {parseResult.validRows.length - 5} more attendee row(s) will be imported
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    /* Skipped / Invalid Rows Table */
+                    <div className="space-y-3">
+                      <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <div className="space-y-0.5">
+                          <p className="text-amber-300 font-bold text-xs flex items-center gap-1.5">
+                            <span>⚠️</span>
+                            <span>{parseResult.invalidRows.length} Skipped Record(s)</span>
+                          </p>
+                          <p className="text-[11px] text-amber-200/70">
+                            These records were excluded due to unapproved status (e.g. declined, cancelled) or invalid email.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const summary = parseResult.invalidRows
+                              .map(
+                                (r) =>
+                                  `Row ${r.rowNumber}: ${r.name || r.guestId || 'Unknown'} (${r.email || 'No email'}) -> ${r.reason}`
+                              )
+                              .join('\n');
+                            navigator.clipboard?.writeText(summary);
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 active:scale-95 text-amber-200 text-[10px] font-mono font-bold transition-all cursor-pointer flex items-center gap-1"
+                          title="Copy list of all skipped attendees"
+                        >
+                          <span>📋</span>
+                          <span>Copy List</span>
+                        </button>
+                      </div>
+
+                      <div className="overflow-x-auto max-h-[340px] overflow-y-auto">
+                        <table className="w-full text-left text-xs text-slate-300">
+                          <thead className="bg-slate-950/80 text-[10px] uppercase font-mono text-slate-400 border-b border-slate-800 sticky top-0">
+                            <tr>
+                              <th className="py-2 px-2.5">Row</th>
+                              <th className="py-2 px-2.5">Attendee / Guest ID</th>
+                              <th className="py-2 px-2.5">Email</th>
+                              <th className="py-2 px-2.5">Skip Reason</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/60">
+                            {parseResult.invalidRows.map((row, idx) => (
+                              <tr key={idx} className="hover:bg-slate-800/30">
+                                <td className="py-2 px-2.5 font-mono text-[11px] text-slate-400 font-bold">
+                                  #{row.rowNumber}
+                                </td>
+                                <td className="py-2 px-2.5">
+                                  <p className="font-bold text-white text-xs">{row.name || '—'}</p>
+                                  {row.guestId && (
+                                    <p className="font-mono text-[10px] text-slate-500">{row.guestId}</p>
+                                  )}
+                                </td>
+                                <td className="py-2 px-2.5 font-mono text-[11px] text-slate-300">
+                                  {row.email || <span className="text-slate-600">—</span>}
+                                </td>
+                                <td className="py-2 px-2.5">
+                                  <span className="px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-800/70 text-[10px] font-bold">
+                                    {row.reason}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
                   )}
                 </div>
               ) : (
