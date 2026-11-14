@@ -267,6 +267,34 @@ export const useConferenceData = ({
       )
       .subscribe();
 
+    const syncLiveAttendeeProgress = async () => {
+      if (!activeEmail) return;
+      try {
+        const stampsRes = await ApiService.getUserStamps(activeEmail);
+        if (stampsRes && Array.isArray(stampsRes.stamps)) {
+          setClaimedStamps(stampsRes.stamps);
+          try {
+            localStorage.setItem('devfest_claimed_stamps', JSON.stringify(stampsRes.stamps));
+          } catch {}
+          if (stampsRes.requiredStamps !== undefined) {
+            setRequiredStamps(stampsRes.requiredStamps);
+          }
+          if (stampsRes.isComplete !== undefined) {
+            setIsRallyComplete(stampsRes.isComplete);
+          }
+          if (stampsRes.checkedIn !== undefined) {
+            setUserProfile((prev) => ({
+              ...prev,
+              isCheckedIn: Boolean(stampsRes.checkedIn),
+              checkedInAt: stampsRes.checkedInAt || prev.checkedInAt,
+            }));
+          }
+        }
+      } catch (err) {
+        console.warn('Notice syncing live stamps:', err);
+      }
+    };
+
     const pollInterval = setInterval(async () => {
       try {
         const res = await ApiService.getNotifications(activeEmail);
@@ -278,10 +306,21 @@ export const useConferenceData = ({
           }
         }
       } catch {}
-    }, 15000);
+
+      // Synchronize live booth stamps and door check-in
+      syncLiveAttendeeProgress();
+    }, 12000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        syncLiveAttendeeProgress();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       clearInterval(pollInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       supabase.removeChannel(channel);
     };
   }, [initialUser?.email, userProfile.email]);

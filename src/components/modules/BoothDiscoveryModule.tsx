@@ -18,6 +18,14 @@ export const BoothDiscoveryModule: React.FC<BoothDiscoveryModuleProps> = ({
   claimedStamps,
   onBackToHome,
 }) => {
+  const isGameBoothStamp = (idOrCode: string) =>
+    idOrCode === '43af99eb-2163-428e-9558-3516e6210bc8' ||
+    idOrCode === 'BOOTH-NANOBANANA' ||
+    idOrCode.toLowerCase().includes('nanobanana');
+
+  const regularCount = claimedStamps.filter((s) => !isGameBoothStamp(s)).length;
+  const hasGame = claimedStamps.some(isGameBoothStamp);
+  const isGameUnlocked = regularCount >= 4;
   return (
     <motion.div
       key="booth-profile"
@@ -82,14 +90,13 @@ export const BoothDiscoveryModule: React.FC<BoothDiscoveryModuleProps> = ({
                 </span>
               </div>
               <span className="font-bold text-slate-800">
-                {Math.min(claimedStamps.filter((s) => !s.toLowerCase().includes('nanobanana')).length, 4)}/4 Partner • {claimedStamps.some((s) => s.toLowerCase().includes('nanobanana')) ? 'Game ✓' : 'Game 🔒'}
+                {Math.min(regularCount, 4)}/4 Partner • {hasGame ? 'Game ✓' : 'Game 🔒'}
               </span>
             </div>
 
             {/* 4 Partner Stamps + 1 Game Booth Stamp */}
             <div className="grid grid-cols-5 gap-1.5">
               {[0, 1, 2, 3].map((idx) => {
-                const regularCount = claimedStamps.filter((s) => !s.toLowerCase().includes('nanobanana')).length;
                 const isAwarded = regularCount > idx;
                 return (
                   <div
@@ -107,31 +114,24 @@ export const BoothDiscoveryModule: React.FC<BoothDiscoveryModuleProps> = ({
               })}
 
               {/* Game Booth Stamp */}
-              {(() => {
-                const regularCount = claimedStamps.filter((s) => !s.toLowerCase().includes('nanobanana')).length;
-                const hasGame = claimedStamps.some((s) => s.toLowerCase().includes('nanobanana'));
-                const isGameUnlocked = regularCount >= 4;
-                return (
-                  <div
-                    title={hasGame ? 'Nanobanana Game Stamp Collected!' : isGameUnlocked ? 'Game Booth Unlocked!' : 'Game Booth (Locked until 4 partner stamps)'}
-                    className={`h-9 rounded-xl flex items-center justify-center shadow-xs transition-transform text-sm relative ${
-                      hasGame
-                        ? 'bg-amber-300 text-amber-950 border border-amber-500 scale-105 font-bold'
-                        : isGameUnlocked
-                        ? 'bg-amber-100 text-amber-700 border-2 border-amber-400 animate-pulse'
-                        : 'bg-[#DCD5C7] text-slate-400 border border-slate-300'
-                    }`}
-                  >
-                    {hasGame ? '🎮' : isGameUnlocked ? '🎮' : '🔒'}
-                  </div>
-                );
-              })()}
+              <div
+                title={hasGame ? 'Nanobanana Game Stamp Collected!' : isGameUnlocked ? 'Game Booth Unlocked!' : 'Game Booth (Locked until 4 partner stamps)'}
+                className={`h-9 rounded-xl flex items-center justify-center shadow-xs transition-transform text-sm relative ${
+                  hasGame
+                    ? 'bg-amber-300 text-amber-950 border border-amber-500 scale-105 font-bold'
+                    : isGameUnlocked
+                    ? 'bg-amber-100 text-amber-700 border-2 border-amber-400 animate-pulse'
+                    : 'bg-[#DCD5C7] text-slate-400 border border-slate-300'
+                }`}
+              >
+                {hasGame ? '🎮' : isGameUnlocked ? '🎮' : '🔒'}
+              </div>
             </div>
 
             <p className="text-[10px] text-slate-500 italic font-serif">
-              {claimedStamps.filter((s) => !s.toLowerCase().includes('nanobanana')).length < 4
-                ? `Collect ${4 - claimedStamps.filter((s) => !s.toLowerCase().includes('nanobanana')).length} more partner stamp${4 - claimedStamps.filter((s) => !s.toLowerCase().includes('nanobanana')).length > 1 ? 's' : ''} to unlock Game Booth.`
-                : !claimedStamps.some((s) => s.toLowerCase().includes('nanobanana'))
+              {regularCount < 4
+                ? `Collect ${4 - regularCount} more partner stamp${4 - regularCount > 1 ? 's' : ''} to unlock Game Booth.`
+                : !hasGame
                 ? 'Game Booth is unlocked! Visit Hall B - #03 for final stamp.'
                 : 'All stamps collected! Blind box reward unlocked! 🎁'}
             </p>

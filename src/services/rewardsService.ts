@@ -34,6 +34,8 @@ export interface UserStampsResponse {
   totalPoints: number;
   requiredStamps?: number;
   isComplete?: boolean;
+  checkedIn?: boolean;
+  checkedInAt?: string | null;
   booths?: Array<{
     id: string;
     name: string;
@@ -108,6 +110,8 @@ export const rewardsService = {
             totalPoints: data.totalPoints || 0,
             requiredStamps: data.requiredStamps,
             isComplete: data.isComplete,
+            checkedIn: data.checkedIn,
+            checkedInAt: data.checkedInAt,
             booths: data.booths,
           };
         }

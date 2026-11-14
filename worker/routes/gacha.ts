@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { getSupabaseAdmin } from '../db';
 import { getNextRewardClaimCode } from './auth';
+import { getAnnexHubConfig } from './booths';
 import type { Env } from '../types';
 
 export const gachaRouter = new Hono<{ Bindings: Env }>();
@@ -325,9 +326,7 @@ gachaRouter.post('/unlock-box', async (c) => {
 
     // Verify user has collected at least 5 stamps before issuing a blind box reward
     let collectedStampsCount = 0;
-    const procEnv = typeof process !== 'undefined' && process.env ? process.env : ({} as Record<string, string | undefined>);
-    const annexApiKey = c.env?.ANNEXHUB_API_KEY || procEnv.ANNEXHUB_API_KEY;
-    const annexEventId = c.env?.ANNEXHUB_EVENT_ID || procEnv.ANNEXHUB_EVENT_ID;
+    const { eventId: annexEventId, apiKey: annexApiKey } = getAnnexHubConfig(c.env);
     const cleanEmail = email && typeof email === 'string' ? email.trim().toLowerCase() : null;
 
     if (annexApiKey && annexEventId && cleanEmail) {

@@ -11,6 +11,7 @@ interface PassBadgeModuleProps {
   userName?: string;
   userRole?: string;
   qrPayload?: string;
+  isCheckedIn?: boolean;
   onOpenScanner: () => void;
   onBackToHome: () => void;
 }
@@ -19,6 +20,7 @@ export const PassBadgeModule: React.FC<PassBadgeModuleProps> = ({
   userName = 'Zixu Cheah',
   userRole = 'Software Engineer',
   qrPayload = 'DEVFEST-KL-2026-ZIXU-CHEAH-SW',
+  isCheckedIn = false,
   onOpenScanner,
   onBackToHome,
 }) => {
@@ -51,6 +53,11 @@ export const PassBadgeModule: React.FC<PassBadgeModuleProps> = ({
             <span className="bg-[#F7B033] text-slate-950 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-black/10">
               2026
             </span>
+            {isCheckedIn && (
+              <span className="bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-xs">
+                Checked In ✓
+              </span>
+            )}
           </div>
 
           <div className="bg-white p-2.5 rounded-2xl inline-block shadow-inner border border-slate-200">

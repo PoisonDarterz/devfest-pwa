@@ -22,6 +22,8 @@ export interface UserProfile {
   linkedinUrl?: string;
   qrPayload: string;
   ticketType?: string;
+  isCheckedIn?: boolean;
+  checkedInAt?: string | null;
 }
 
 export const getAuthHeaders = (): Record<string, string> => {

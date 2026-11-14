@@ -19,6 +19,8 @@ export interface UserProfile {
   githubUrl?: string;
   linkedinUrl?: string;
   ticketType?: string;
+  isCheckedIn?: boolean;
+  checkedInAt?: string;
 }
 
 export interface Booth {

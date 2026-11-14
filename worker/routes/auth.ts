@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { sign, verify } from 'hono/jwt';
 import bcrypt from 'bcryptjs';
 import { getSupabaseAdmin, getJwtSecret } from '../db';
+import { getAnnexHubConfig } from './booths';
 import type { Env } from '../types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -243,6 +244,33 @@ authRouter.post('/check-status', async (c) => {
     });
   }
 
+  // Check AnnexHub door check-in status
+  let isDoorCheckedIn = false;
+  let doorCheckedInAt: string | null = null;
+  try {
+    const { eventId: annexEventId, apiKey: annexApiKey } = getAnnexHubConfig(c.env);
+    if (annexApiKey && annexEventId) {
+      const annexUrl = `https://api.annexhub.ai/api/v1/partner/events/${annexEventId}/progress`;
+      const annexRes = await fetch(annexUrl, {
+        method: 'POST',
+        headers: {
+          'X-Api-Key': annexApiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: cleanEmail }),
+      });
+      if (annexRes.ok) {
+        const annexData = (await annexRes.json()) as any;
+        if (annexData?.checkedIn) {
+          isDoorCheckedIn = true;
+          doorCheckedInAt = annexData.checkedInAt || null;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[Auth] AnnexHub door check-in lookup notice:', err);
+  }
+
   try {
     const { data: profData, error: profErr } = await supabaseAdmin
       .from('vw_profiles')
@@ -268,6 +296,8 @@ authRouter.post('/check-status', async (c) => {
           linkedinUrl: p.linkedin_url || '',
           qrPayload: p.qr_payload || wl.qrPayload || '',
           ticketType: p.ticket_type || wl.ticketType || 'Standard Attendee',
+          isCheckedIn: Boolean(p.is_checked_in || isDoorCheckedIn),
+          checkedInAt: p.checked_in_at || doorCheckedInAt || null,
         },
         ticketType: p.ticket_type || wl.ticketType || 'Standard Attendee',
         message: 'User profile found in database!',

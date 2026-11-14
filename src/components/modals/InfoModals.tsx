@@ -733,7 +733,14 @@ export const InfoModals: React.FC<InfoModalsProps> = ({
             )}
 
             <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
-              <span className="text-emerald-400 font-semibold">✓ Luma Ticket Linked</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-emerald-400 font-semibold">✓ Luma Ticket Linked</span>
+                {(userProfile as any).isCheckedIn && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    Checked In ✓
+                  </span>
+                )}
+              </div>
               <span
                 className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                   userProfile.ticketType?.toLowerCase() === 'core team'

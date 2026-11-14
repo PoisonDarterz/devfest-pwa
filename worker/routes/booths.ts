@@ -205,13 +205,24 @@ export const ANNEXHUB_BOOTHS_FALLBACK = [
   },
 ];
 
+// AnnexHub Live Production Configuration
+export const LIVE_ANNEXHUB_EVENT_ID = '82c84c49-9d0f-4c2f-b247-c5dd58cda773';
+
+export const getAnnexHubConfig = (env?: any) => {
+  const procEnv = typeof process !== 'undefined' && process.env ? process.env : ({} as Record<string, string | undefined>);
+  let eventId = env?.ANNEXHUB_EVENT_ID || procEnv.ANNEXHUB_EVENT_ID;
+  if (!eventId || eventId === 'fd24cc93-87f5-4d76-b4b9-c94bac6390b6') {
+    eventId = LIVE_ANNEXHUB_EVENT_ID;
+  }
+  const apiKey = env?.ANNEXHUB_API_KEY || procEnv.ANNEXHUB_API_KEY;
+  return { eventId, apiKey };
+};
+
 // =============================================================================
 // 1. GET /api/booths - Fetch all partner and sponsor booths from AnnexHub (source of truth)
 // =============================================================================
 boothsRouter.get('/', async (c) => {
-  const procEnv = typeof process !== 'undefined' && process.env ? process.env : ({} as Record<string, string | undefined>);
-  const annexApiKey = c.env?.ANNEXHUB_API_KEY || procEnv.ANNEXHUB_API_KEY;
-  const annexEventId = c.env?.ANNEXHUB_EVENT_ID || procEnv.ANNEXHUB_EVENT_ID;
+  const { eventId: annexEventId, apiKey: annexApiKey } = getAnnexHubConfig(c.env);
 
   // 1. AnnexHub Source of Truth: Fetch live event booths from AnnexHub progress
   if (annexApiKey && annexEventId) {
@@ -300,12 +311,18 @@ boothsRouter.get('/stamps', async (c) => {
   const queryUserId = c.req.query('userId');
 
   try {
-    const cleanEmail = email ? email.trim().toLowerCase() : null;
-    const procEnv = typeof process !== 'undefined' && process.env ? process.env : ({} as Record<string, string | undefined>);
+    let cleanEmail = email ? email.trim().toLowerCase() : null;
 
-    // 1. Check AnnexHub integration if configured and user email is provided
-    const annexApiKey = c.env?.ANNEXHUB_API_KEY || procEnv.ANNEXHUB_API_KEY;
-    const annexEventId = c.env?.ANNEXHUB_EVENT_ID || procEnv.ANNEXHUB_EVENT_ID;
+    // If query email is absent, attempt to resolve from JWT Bearer token or userId
+    if (!cleanEmail) {
+      const resolved = await resolveUserId(c, supabaseAdmin, queryUserId, undefined);
+      if (resolved.email) {
+        cleanEmail = resolved.email.trim().toLowerCase();
+      }
+    }
+
+    // 1. Check AnnexHub integration (source of truth) with live config fallback
+    const { eventId: annexEventId, apiKey: annexApiKey } = getAnnexHubConfig(c.env);
 
     if (annexApiKey && annexEventId && cleanEmail) {
       try {
@@ -365,6 +382,8 @@ boothsRouter.get('/stamps', async (c) => {
               expectedBooths: stampBooths.length, // 7
               isComplete,
               totalPoints: collectedStamps * 15,
+              checkedIn: Boolean(annexData.checkedIn),
+              checkedInAt: annexData.checkedInAt || null,
               booths: stampBooths.map((b: any, index: number) => {
                 const matched = ANNEXHUB_BOOTHS_FALLBACK.find(
                   (fb) => fb.id === b.id || fb.name.toLowerCase() === b.name.toLowerCase()

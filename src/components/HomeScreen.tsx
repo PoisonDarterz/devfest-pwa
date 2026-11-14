@@ -267,6 +267,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogout, onOpenAdmin, i
                 userName={userProfile.name}
                 userRole={userProfile.role}
                 qrPayload={userProfile.qrPayload}
+                isCheckedIn={userProfile.isCheckedIn}
                 onOpenScanner={() => setSheetState('scan_qr_2')}
                 onBackToHome={() => setSheetState('home')}
               />
